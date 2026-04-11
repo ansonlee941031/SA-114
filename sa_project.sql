@@ -2,10 +2,10 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- 主機： 127.0.0.1:3307
--- 產生時間： 2026-04-11 08:54:16
+-- 主機： 127.0.0.1
+-- 產生時間： 2026-04-11 10:42:22
 -- 伺服器版本： 10.4.32-MariaDB
--- PHP 版本： 8.2.12
+-- PHP 版本： 8.0.30
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -78,14 +78,25 @@ INSERT INTO `cafe_shop` (`id`, `name`, `address`, `phone`, `opening_hours`) VALU
 --
 
 CREATE TABLE `label` (
-  `插座` tinyint(1) NOT NULL,
-  `不限時` tinyint(1) NOT NULL,
-  `停車位` varchar(0) NOT NULL,
-  `wifi` varchar(0) NOT NULL,
-  `戶外座位` varchar(0) NOT NULL,
-  `有甜點` varchar(0) NOT NULL,
-  `有低消` varchar(0) NOT NULL
+  `cafe_id` int(11) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `插座` tinyint(1) NOT NULL DEFAULT 0,
+  `不限時` tinyint(1) NOT NULL DEFAULT 0,
+  `停車位` tinyint(1) NOT NULL DEFAULT 0,
+  `wifi` tinyint(1) NOT NULL DEFAULT 0,
+  `戶外座位` tinyint(1) NOT NULL DEFAULT 0,
+  `甜點` tinyint(1) NOT NULL DEFAULT 0,
+  `廁所` tinyint(1) NOT NULL DEFAULT 0,
+  `低消` int(10) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- 傾印資料表的資料 `label`
+--
+
+INSERT INTO `label` (`cafe_id`, `name`, `插座`, `不限時`, `停車位`, `wifi`, `戶外座位`, `甜點`, `廁所`, `低消`) VALUES
+(1, '一粒麥', 0, 0, 0, 0, 0, 0, 0, 0),
+(2, '夢咖啡 Cafe Moose', 0, 0, 0, 0, 0, 0, 0, 0);
 
 --
 -- 已傾印資料表的索引
@@ -103,6 +114,12 @@ ALTER TABLE `cafe_hours`
 --
 ALTER TABLE `cafe_shop`
   ADD PRIMARY KEY (`id`);
+
+--
+-- 資料表索引 `label`
+--
+ALTER TABLE `label`
+  ADD PRIMARY KEY (`cafe_id`);
 
 --
 -- 在傾印的資料表使用自動遞增(AUTO_INCREMENT)
@@ -129,6 +146,12 @@ ALTER TABLE `cafe_shop`
 --
 ALTER TABLE `cafe_hours`
   ADD CONSTRAINT `cafe_hours_ibfk_1` FOREIGN KEY (`cafe_id`) REFERENCES `cafe_shop` (`id`) ON DELETE CASCADE;
+
+--
+-- 資料表的限制式 `label`
+--
+ALTER TABLE `label`
+  ADD CONSTRAINT `label_ibfk_1` FOREIGN KEY (`cafe_id`) REFERENCES `cafe_shop` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
