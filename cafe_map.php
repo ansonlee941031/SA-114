@@ -159,7 +159,7 @@ if ($stmt) {
                     <label><input type="checkbox" name="seats" value="1" <?php echo $hasSeat ? 'checked' : ''; ?>> 室內座位</label>
                     <label><input type="checkbox" name="dessert" value="1" <?php echo $hasDessert ? 'checked' : ''; ?>> 甜點</label>
                     <label><input type="checkbox" name="toilet" value="1" <?php echo $hasToilet ? 'checked' : ''; ?>> 廁所</label>
-                    <label><input type="checkbox" name="no_min_consume" value="1" <?php echo $noMinConsume ? 'checked' : ''; ?>> 低消限制</label>
+                    <label><input type="checkbox" name="no_min_consume" value="1" <?php echo $noMinConsume ? 'checked' : ''; ?>> 無低消</label>
                     <button type="submit" class="btn">快速篩選</button>
                 </div>
             </div>
@@ -170,28 +170,30 @@ if ($stmt) {
                     <div class="filter-box" style="background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
                         <h3>篩選條件</h3>
                         <div class="filter-section">
-                            <h4>顧客評分</h4>
-                            <label><input type="checkbox" name="rating" value="3.5" <?php echo ($selectedRating == 3.5) ? 'checked' : ''; ?>> 3.5 星以上</label><br>
-                            <label><input type="checkbox" name="rating" value="4.0" <?php echo ($selectedRating == 4.0) ? 'checked' : ''; ?>> 4.0 星以上</label><br>
-                            <label><input type="checkbox" name="rating" value="4.5" <?php echo ($selectedRating == 4.5) ? 'checked' : ''; ?>> 4.5 星以上</label><br>
+                        <h4>顧客評分</h4>
+                            <label><input type="radio" name="rating" value="0" <?php echo ($selectedRating == 0) ? 'checked' : ''; ?>> 不限</label><br>
+                            <label><input type="radio" name="rating" value="3.5" <?php echo ($selectedRating == 3.5) ? 'checked' : ''; ?>> 3.5 以上</label><br>
+                            <label><input type="radio" name="rating" value="4.0" <?php echo ($selectedRating == 4.0) ? 'checked' : ''; ?>> 4.0 以上</label><br>
+                            <label><input type="radio" name="rating" value="4.5" <?php echo ($selectedRating == 4.5) ? 'checked' : ''; ?>> 4.5 以上</label><br>
                         </div>
 
                         <div class="filter-section">
-                            <h4>價格範圍</h4>
+                            <h4>低消範圍</h4>
                             <hr style="border: 0.5px solid #eee; margin: 10px 0;">
-                            <label><input type="checkbox" name="price[]" value="1" <?php echo in_array("1", $selectedPriceGroups) ? 'checked' : ''; ?>> 1-50</label><br>
-                            <label><input type="checkbox" name="price[]" value="2" <?php echo in_array("2", $selectedPriceGroups) ? 'checked' : ''; ?>> 51-100</label><br>
-                            <label><input type="checkbox" name="price[]" value="3" <?php echo in_array("3", $selectedPriceGroups) ? 'checked' : ''; ?>> 101-150</label><br>
-                            <label><input type="checkbox" name="price[]" value="4" <?php echo in_array("4", $selectedPriceGroups) ? 'checked' : ''; ?>> 151-200</label><br>
-                            <label><input type="checkbox" name="price[]" value="5" <?php echo in_array("5", $selectedPriceGroups) ? 'checked' : ''; ?>> 201-250</label><br>
+                            <label><input type="checkbox" name="price[]" value="1" <?php echo in_array("1", $selectedPriceGroups) ? 'checked' : ''; ?>> $1 ~ $50</label><br>
+                            <label><input type="checkbox" name="price[]" value="2" <?php echo in_array("2", $selectedPriceGroups) ? 'checked' : ''; ?>> $51 ~ $100</label><br>
+                            <label><input type="checkbox" name="price[]" value="3" <?php echo in_array("3", $selectedPriceGroups) ? 'checked' : ''; ?>> $101 ~ $150</label><br>
+                            <label><input type="checkbox" name="price[]" value="4" <?php echo in_array("4", $selectedPriceGroups) ? 'checked' : ''; ?>> $151 ~ $200</label><br>
+                            <label><input type="checkbox" name="price[]" value="5" <?php echo in_array("5", $selectedPriceGroups) ? 'checked' : ''; ?>> $201 ~ $250</label><br>
                         </div>
 
                         <div class="filter-section">
                             <h4>距離</h4>
-                            <label><input type="checkbox" name="distance" value="0.5" <?php echo ($selectedDistance == 0.5) ? 'checked' : ''; ?>> 0.5 公里內</label><br>
-                            <label><input type="checkbox" name="distance" value="1.0" <?php echo ($selectedDistance == 1.0) ? 'checked' : ''; ?>> 1.0 公里內</label><br>
-                            <label><input type="checkbox" name="distance" value="1.5" <?php echo ($selectedDistance == 1.5) ? 'checked' : ''; ?>> 1.5 公里內</label><br>
-                            <label><input type="checkbox" name="distance" value="2.0" <?php echo ($selectedDistance == 2.0) ? 'checked' : ''; ?>> 2.0 公里內</label><br>
+                            <label><input type="radio" name="distance" value="0" <?php echo ($selectedDistance == 0) ? 'checked' : ''; ?>> 不限</label><br>
+                            <label><input type="radio" name="distance" value="0.5" <?php echo ($selectedDistance == 0.5) ? 'checked' : ''; ?>> 0.5 公里內</label><br>
+                            <label><input type="radio" name="distance" value="1.0" <?php echo ($selectedDistance == 1.0) ? 'checked' : ''; ?>> 1.0 公里內</label><br>
+                            <label><input type="radio" name="distance" value="1.5" <?php echo ($selectedDistance == 1.5) ? 'checked' : ''; ?>> 1.5 公里內</label><br>
+                            <label><input type="radio" name="distance" value="2.0" <?php echo ($selectedDistance == 2.0) ? 'checked' : ''; ?>> 2.0 公里內</label><br>
                         </div>
 
                         <button type="submit" class="btn filter-btn" style="width:100%; margin-top:15px;">套用篩選</button>
