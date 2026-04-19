@@ -101,6 +101,8 @@ CREATE TABLE `label` (
   `低消` int(10) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+ALTER TABLE `label` ADD `室內座位` TINYINT(1) NOT NULL DEFAULT 0 AFTER `戶外座位`;
+
 --
 -- 傾印資料表的資料 `label`
 --
