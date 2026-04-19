@@ -4,6 +4,18 @@ require_once __DIR__ . '/config/db.php';
 // 取得使用者選擇的標籤
 $hasSocket = isset($_GET['socket']) ? 1 : 0;
 $hasNoLimit = isset($_GET['no_limit']) ? 1 : 0;
+$hasParking = isset($_GET['parking']) ? 1 : 0;
+$hasWiFi    = isset($_GET['wifi']) ? 1 : 0;
+$hasOutdoor = isset($_GET['outdoor']) ? 1 : 0;
+$hasDessert = isset($_GET['dessert']) ? 1 : 0;
+$hasToilet  = isset($_GET['toilet']) ? 1 : 0;
+$noMinConsume = isset($_GET['no_min_consume']) ? 1 : 0;
+$hasSeat    = isset($_GET['seats']) ? 1 : 0;
+
+// 側欄參數
+$selectedRating = isset($_GET['rating']) ? (float)$_GET['rating'] : 0;
+$selectedPriceGroups = isset($_GET['price']) ? $_GET['price'] : [];
+$selectedDistance = isset($_GET['distance']) ? (float)$_GET['distance'] : 0;
 
 // 基本 SQL：從 cafe_shop 連接 label
 $sql = "
@@ -12,7 +24,10 @@ $sql = "
         cafe_shop.name,
         cafe_shop.address,
         cafe_shop.phone,
-        cafe_shop.opening_hours
+        cafe_shop.opening_hours,
+        cafe_shop.rating,
+        cafe_shop.distance_meters,
+        cafe_shop.min_consumption
     FROM cafe_shop
     INNER JOIN label ON cafe_shop.id = label.cafe_id
     WHERE 1 = 1
@@ -31,6 +46,79 @@ if ($hasSocket) {
 if ($hasNoLimit) {
     $sql .= " AND label.`不限時` = ?";
     $params[] = 1;
+    $types .= "i";
+}
+
+if ($hasParking) {
+    $sql .= " AND label.`停車位` = ?";
+    $params[] = 1;
+    $types .= "i";
+}
+
+if ($hasWiFi) {
+    $sql .= " AND label.`wifi` = ?";
+    $params[] = 1;
+    $types .= "i";
+}
+
+if ($hasOutdoor) {
+    $sql .= " AND label.`戶外座位` = ?";
+    $params[] = 1;
+    $types .= "i";
+}
+
+if ($hasDessert) {
+    $sql .= " AND label.`甜點` = ?";
+    $params[] = 1;
+    $types .= "i";
+}
+
+if ($hasToilet) {
+    $sql .= " AND label.`廁所` = ?";
+    $params[] = 1;
+    $types .= "i";
+}
+
+if ($noMinConsume) {
+    $sql .= " AND cafe_shop.`min_consumption` = ?";
+    $params[] = 0; // 金額為 0 代表無低消
+    $types .= "i";
+}
+
+if ($hasSeat) {
+    $sql .= " AND label.`室內座位` = ?";
+    $params[] = 1;
+    $types .= "i";
+}
+
+// --- 側欄篩選邏輯補完 ---
+
+// 1. 評分篩選
+if ($selectedRating > 0) {
+    $sql .= " AND cafe_shop.`rating` >= ?";
+    $params[] = $selectedRating;
+    $types .= "d"; // d 代表 double 浮點數
+}
+
+// 2. 價格區間篩選 (處理多選情況)
+if (!empty($selectedPriceGroups)) {
+    $priceClauses = [];
+    foreach ($selectedPriceGroups as $group) {
+        if ($group == "1") $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 1 AND 50";
+        if ($group == "2") $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 51 AND 100";
+        if ($group == "3") $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 101 AND 150";
+        if ($group == "4") $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 151 AND 200";
+        if ($group == "5") $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 201 AND 500";
+    }
+    if (!empty($priceClauses)) {
+        $sql .= " AND (" . implode(" OR ", $priceClauses) . ")";
+    }
+}
+
+// 3. 距離篩選 (單位換算：HTML 是公里，資料庫是公尺)
+if ($selectedDistance > 0) {
+    $sql .= " AND cafe_shop.`distance_meters` <= ?";
+    $params[] = $selectedDistance * 1000;
     $types .= "i";
 }
 
@@ -142,53 +230,70 @@ if ($stmt) {
 <body>
     <div class="container">
         <h1>咖啡廳地圖</h1>
-
+<form method="GET" class="filter-box">
+    <input type="hidden" name="rating" value="<?php echo $selectedRating; ?>">
+    <input type="hidden" name="distance" value="<?php echo $selectedDistance; ?>">
+    <?php foreach($selectedPriceGroups as $p): ?>
+        <input type="hidden" name="price[]" value="<?php echo htmlspecialchars($p); ?>">
+    <?php endforeach; ?>
+    
         <form method="GET" class="filter-box">
             <div class="tags">
                 <label>
-                    <input type="checkbox" name="socket" value="1" <?php echo $hasSocket ? 'checked' : ''; ?>>
-                    插座
-                </label>
-                <label>
-                    <input type="checkbox" name="no_limit" value="1" <?php echo $hasNoLimit ? 'checked' : ''; ?>>
-                    不限時
-                </label>
+                    <input type="checkbox" name="socket" value="1" <?php echo $hasSocket ? 'checked' : ''; ?>>插座</label>
+                <label><input type="checkbox" name="no_limit" value="1" <?php echo $hasNoLimit ? 'checked' : ''; ?>>不限時</label>
+                <label><input type="checkbox" name="parking" value="1" <?php echo $hasParking ? 'checked' : ''; ?>> 停車位</label>
+        <label><input type="checkbox" name="wifi" value="1" <?php echo $hasWiFi ? 'checked' : ''; ?>> WiFi</label>
+        <label><input type="checkbox" name="outdoor" value="1" <?php echo $hasOutdoor ? 'checked' : ''; ?>> 戶外座位</label>
+        <label><input type="checkbox" name="seats" value="1" <?php echo $hasSeat ? 'checked' : ''; ?>> 室內座位</label>
+        <label><input type="checkbox" name="dessert" value="1" <?php echo $hasDessert ? 'checked' : ''; ?>> 甜點</label>
+        <label><input type="checkbox" name="toilet" value="1" <?php echo $hasToilet ? 'checked' : ''; ?>> 廁所</label>
+        <label><input type="checkbox" name="no_min_consume" value="1" <?php echo $noMinConsume ? 'checked' : ''; ?>> 低消限制</label>
                 <button type="submit" class="btn">快速篩選</button>
             </div>
         </form> <div class="main-layout" style="display: flex; gap: 30px; align-items: flex-start; margin-top: 20px;">
             
             <aside class="filter-sidebar" style="width: 250px; flex-shrink: 0;">
-                <form method="GET" class="filter-box" style="background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+    <form method="GET" class="filter-box" style="background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
                     <input type="hidden" name="socket" value="<?php echo $hasSocket; ?>">
                     <input type="hidden" name="no_limit" value="<?php echo $hasNoLimit; ?>">
+                    <input type="hidden" name="parking" value="<?php echo $hasParking; ?>">
+                    <input type="hidden" name="wifi" value="<?php echo $hasWiFi; ?>">
+                    <input type="hidden" name="outdoor" value="<?php echo $hasOutdoor; ?>">
+                    <input type="hidden" name="dessert" value="<?php echo $hasDessert; ?>">
+                    <input type="hidden" name="toilet" value="<?php echo $hasToilet; ?>">
+                    <input type="hidden" name="no_min_consume" value="<?php echo $noMinConsume; ?>">
+                    <input type="hidden" name="seats" value="<?php echo $hasSeat; ?>">
 
                     <h3>篩選條件</h3>
                     <div class="filter-section">
                         <h4>顧客評分</h4>
-                         <label><input type="checkbox" name="rating" value="all" checked> 不限</label><br>
-                        <label><input type="checkbox" name="rating" value="3.5"> 3.5 星以上</label><br>
-                        <label><input type="checkbox" name="rating" value="4.0"> 4.0 星以上</label><br>
-                        <label><input type="checkbox" name="rating" value="4.5"> 4.5 星以上</label>
-                        
+                        <label><input type="checkbox" name="rating" value="3.5" <?php echo ($selectedRating == 3.5) ? 'checked' : ''; ?>> 3.5 星以上</label><br>
+                        <label><input type="checkbox" name="rating" value="4.0" <?php echo ($selectedRating == 4.0) ? 'checked' : ''; ?>> 4.0 星以上</label><br>
+                        <label><input type="checkbox" name="rating" value="4.5" <?php echo ($selectedRating == 4.5) ? 'checked' : ''; ?>> 4.5 星以上</label><br>
                     </div>
 
                     <div class="filter-section">
-                        <h4>價格範圍</h4>
-                        <label><input type="checkbox" name="price" value="all" checked> 不限</label><br>
-                        <label><input type="checkbox" name="price" value="1"> 1-50</label><br>
-                        <label><input type="checkbox" name="price" value="2"> 51-100</label><br>
-                        <label><input type="checkbox" name="price" value="3"> 101-150</label><br>
-                        <label><input type="checkbox" name="price" value="4"> 151-200</label><br>
-                        <label><input type="checkbox" name="price" value="5"> 201-500</label>
-                    </div>
+    <h4>價格範圍</h4>
+    <label>
+        <input type="checkbox" name="no_min_consume" value="1" <?php echo isset($_GET['no_min_consume']) ? 'checked' : ''; ?>> 
+        無低消
+    </label><br>  
+    <hr style="border: 0.5px solid #eee; margin: 10px 0;">
+    
+    <label><input type="checkbox" name="price[]" value="1" <?php echo in_array("1", $selectedPriceGroups) ? 'checked' : ''; ?>> 1-50</label><br>
+    <label><input type="checkbox" name="price[]" value="2" <?php echo in_array("2", $selectedPriceGroups) ? 'checked' : ''; ?>> 51-100</label><br>
+    <label><input type="checkbox" name="price[]" value="3" <?php echo in_array("3", $selectedPriceGroups) ? 'checked' : ''; ?>> 101-150</label><br>
+    <label><input type="checkbox" name="price[]" value="4" <?php echo in_array("4", $selectedPriceGroups) ? 'checked' : ''; ?>> 151-200</label><br>
+    <label><input type="checkbox" name="price[]" value="5" <?php echo in_array("5", $selectedPriceGroups) ? 'checked' : ''; ?>> 201-250</label><br>
+</div>
 
                     <div class="filter-section">
                         <h4>距離</h4>
-                        <label><input type="checkbox" name="distance" value="all" checked> 不限</label><br>
-                        <label><input type="checkbox" name="distance" value="0.5"> 0.5 公里內</label><br>
-                        <label><input type="checkbox" name="distance" value="1"> 1 公里內</label><br>
-                        <label><input type="checkbox" name="distance" value="1.5"> 1.5 公里內</label><br>
-                        <label><input type="checkbox" name="distance" value="2"> 2 公里內</label>
+                        <label><input type="checkbox" name="distance" value="0.5" <?php echo ($selectedDistance == 0.5) ? 'checked' : ''; ?>> 0.5 公里內</label><br>
+                        <label><input type="checkbox" name="distance" value="1.0" <?php echo ($selectedDistance == 1.0) ? 'checked' : ''; ?>> 1.0 公里內</label><br>
+                        <label><input type="checkbox" name="distance" value="1.5" <?php echo ($selectedDistance == 1.5) ? 'checked' : ''; ?>> 1.5 公里內</label><br>
+                        <label><input type="checkbox" name="distance" value="2.0" <?php echo ($selectedDistance == 2.0) ? 'checked' : ''; ?>> 2.0 公里內</label><br>
                     </div>
 
                     <button type="submit" class="btn filter-btn" style="width:100%; margin-top:15px;">套用篩選</button>
@@ -201,10 +306,18 @@ if ($stmt) {
                         <?php while ($row = mysqli_fetch_assoc($result)): ?>
                             <div class="card">
                                 <h3><?php echo htmlspecialchars($row['name']); ?></h3>
-                                <div class="rating">評價：尚無評價資料</div>
+                                <div class="rating">
+                                <?php if (!empty($row['rating'])): ?>
+                                <?php echo htmlspecialchars($row['rating']); ?> / 5.0
+                                <?php else: ?>
+                                評價：尚無評價資料
+                                <?php endif; ?>
+                                </div>
                                 <p><strong>地址：</strong><?php echo htmlspecialchars($row['address']); ?></p>
                                 <p><strong>電話：</strong><?php echo htmlspecialchars($row['phone']); ?></p>
                                 <p><strong>營業時間：</strong><?php echo nl2br(htmlspecialchars($row['opening_hours'])); ?></p>
+                                <p><strong>距離(公尺)：</strong><?php echo htmlspecialchars($row['distance_meters']); ?></p>
+                                <p><strong>最低消費：</strong><?php echo ($row['min_consumption'] == 0) ? "無低消" : htmlspecialchars($row['min_consumption']) . " 元"; ?></p>
                             </div>
                         <?php endwhile; ?>
                     <?php else: ?>
