@@ -1,0 +1,12 @@
+# 忽略 Google 密鑰設定檔
+config/google_config.php# 從 Git 索引中移除該檔案（檔案不會消失，只是不再被 Git 追蹤）
+git rm --cached config/google_config.php
+
+# 重新提交變動
+git add .
+git commit -m "將敏感設定檔移出 Git 追蹤並加入 .gitignore"
+git push origin main
+
+# 忽略本地開發環境的暫存檔
+vendor/
+.DS_Store
