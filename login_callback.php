@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+// ... 原有的 require_once
 session_start();
 require_once 'config/db.php'; // 引用您的資料庫連線[cite: 4]
 require_once 'config/google_config.php'; // 引用 Google 設定[cite: 4]
