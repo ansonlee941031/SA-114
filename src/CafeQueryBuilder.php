@@ -6,6 +6,8 @@ class CafeQueryBuilder
 {
     public static function build(array $query): array
     {
+        // 1. 接收篩選與搜尋參數
+        $searchTerm   = isset($query['search']) ? trim($query['search']) : '';
         $hasSocket    = isset($query['socket']) ? 1 : 0;
         $hasNoLimit   = isset($query['no_limit']) ? 1 : 0;
         $hasParking   = isset($query['parking']) ? 1 : 0;
@@ -20,10 +22,21 @@ class CafeQueryBuilder
         $selectedDistance = isset($query['distance']) ? (float)$query['distance'] : 0;
         $selectedPriceGroups = self::normalizePriceGroups($query['price'] ?? []);
 
+        // 2. 基本 SQL 結構
         $sql = "SELECT cafe_shop.* FROM cafe_shop INNER JOIN label ON cafe_shop.id = label.cafe_id WHERE 1 = 1";
         $params = [];
         $types = "";
 
+        // --- 新增：關鍵字搜尋邏輯 (搜尋店名或地址) ---
+        if ($searchTerm !== '') {
+            $sql .= " AND (cafe_shop.`name` LIKE ? OR cafe_shop.`address` LIKE ?)";
+            $fuzzySearch = '%' . $searchTerm . '%';
+            $params[] = $fuzzySearch;
+            $params[] = $fuzzySearch;
+            $types .= "ss";
+        }
+
+        // --- 標籤與屬性篩選 ---
         if ($hasSocket) { $sql .= " AND label.`插座` = ?"; $params[] = 1; $types .= "i"; }
         if ($hasNoLimit) { $sql .= " AND label.`不限時` = ?"; $params[] = 1; $types .= "i"; }
         if ($hasParking) { $sql .= " AND label.`停車位` = ?"; $params[] = 1; $types .= "i"; }
@@ -36,31 +49,22 @@ class CafeQueryBuilder
 
         if ($selectedRating > 0) { $sql .= " AND cafe_shop.`rating` >= ?"; $params[] = $selectedRating; $types .= "d"; }
 
+        // --- 價格區間篩選 ---
         $priceClauses = [];
         foreach ($selectedPriceGroups as $group) {
             switch ((string)$group) {
-                case '1':
-                    $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 1 AND 50";
-                    break;
-                case '2':
-                    $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 51 AND 100";
-                    break;
-                case '3':
-                    $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 101 AND 150";
-                    break;
-                case '4':
-                    $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 151 AND 200";
-                    break;
-                case '5':
-                    $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 201 AND 500";
-                    break;
+                case '1': $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 1 AND 50"; break;
+                case '2': $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 51 AND 100"; break;
+                case '3': $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 101 AND 150"; break;
+                case '4': $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 151 AND 200"; break;
+                case '5': $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 201 AND 500"; break;
             }
         }
-
         if (!empty($priceClauses)) {
             $sql .= " AND (" . implode(" OR ", $priceClauses) . ")";
         }
 
+        // --- 距離篩選 ---
         if ($selectedDistance > 0) {
             $sql .= " AND cafe_shop.`distance_meters` <= ?";
             $params[] = (int)round($selectedDistance * 1000);
@@ -81,11 +85,9 @@ class CafeQueryBuilder
         if (is_array($priceGroups)) {
             return array_values($priceGroups);
         }
-
         if ($priceGroups === null || $priceGroups === '') {
             return [];
         }
-
         return [(string)$priceGroups];
     }
 }

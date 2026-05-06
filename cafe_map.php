@@ -1,183 +1,155 @@
 <?php
-// 1. 啟動 Session 並引入設定 (必須在最上方)
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
 require_once __DIR__ . '/config/db.php';
 require_once __DIR__ . '/src/CafeQueryBuilder.php';
 include_once __DIR__ . '/config/google_config.php';
 
-// 2. 接收所有篩選參數
-$hasSocket    = isset($_GET['socket']) ? 1 : 0;
-$hasNoLimit   = isset($_GET['no_limit']) ? 1 : 0;
-$hasParking   = isset($_GET['parking']) ? 1 : 0;
-$hasWiFi      = isset($_GET['wifi']) ? 1 : 0;
-$hasOutdoor   = isset($_GET['outdoor']) ? 1 : 0;
-$hasDessert   = isset($_GET['dessert']) ? 1 : 0;
-$hasToilet    = isset($_GET['toilet']) ? 1 : 0;
-$noMinConsume = isset($_GET['no_min_consume']) ? 1 : 0;
-$hasSeat      = isset($_GET['seats']) ? 1 : 0;
-
+// 接收所有篩選參數以維持 UI 狀態
+$searchTerm   = htmlspecialchars($_GET['search'] ?? '');
 $selectedRating = isset($_GET['rating']) ? (float)$_GET['rating'] : 0;
-$selectedPriceGroups = isset($_GET['price']) ? $_GET['price'] : [];
 $selectedDistance = isset($_GET['distance']) ? (float)$_GET['distance'] : 0;
+$selectedPriceGroups = isset($_GET['price']) ? (is_array($_GET['price']) ? $_GET['price'] : [$_GET['price']]) : [];
 
+// 執行 SQL 查詢[cite: 3, 5]
 $queryData = \App\CafeQueryBuilder::build($_GET);
-$sql = $queryData['sql'];
-$params = $queryData['params'];
-$types = $queryData['types'];
-$stmt = mysqli_prepare($conn, $sql);
+$stmt = mysqli_prepare($conn, $queryData['sql']);
 if ($stmt) {
-    if (!empty($params)) { mysqli_stmt_bind_param($stmt, $types, ...$params); }
+    if (!empty($queryData['params'])) { mysqli_stmt_bind_param($stmt, $queryData['types'], ...$queryData['params']); }
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 }
 
-// 3. 處理查詢結果
-$cafesArray = [];
-$mapData = [];
-
-// 設定時區並取得現在時間
+$cafesArray = []; $mapData = [];
 date_default_timezone_set('Asia/Taipei');
-$current_day = date('N'); // 1-7
-$current_time = date('H:i:s');
+$current_day = date('N'); $now_min = (int)date('H') * 60 + (int)date('i');
 
 if ($result) {
     while ($row = mysqli_fetch_assoc($result)) {
-        // [新增] 查詢這家店今天的營業時間
         $cafe_id = $row['id'];
-        $hour_sql = "SELECT open_time, close_time, is_closed FROM cafe_hours WHERE cafe_id = $cafe_id AND day_of_week = $current_day";
-        $hour_res = mysqli_query($conn, $hour_sql);
+        $hour_res = mysqli_query($conn, "SELECT open_time, close_time, is_closed FROM cafe_hours WHERE cafe_id = $cafe_id AND day_of_week = $current_day");
         
-        $isOpen = false; // 預設為打烊
-        if ($hour_row = mysqli_fetch_assoc($hour_res)) {
-            // 如果今天沒有公休，且現在時間介於營業時間內
-            if ($hour_row['is_closed'] == 0 && $current_time >= $hour_row['open_time'] && $current_time <= $hour_row['close_time']) {
+        $statusClass = 'dot-closed'; $statusText = '○ 已打烊'; $isOpen = false; 
+        $active_open = null; $active_close = null; $is_closed_today = 1; $current_priority = 0; $today_parts = [];
+
+        while ($h = mysqli_fetch_assoc($hour_res)) {
+            if ($h['is_closed']) { $statusText = '○ 今日公休'; $today_parts = ["今日公休"]; $current_priority = -1; break; }
+            $is_closed_today = 0;
+            $o_t = $h['open_time']; $c_t = $h['close_time'];
+            $o_m = (int)date('H', strtotime($o_t)) * 60 + (int)date('i', strtotime($o_t));
+            $c_m = (int)date('H', strtotime($c_t)) * 60 + (int)date('i', strtotime($c_t));
+            $today_parts[] = date('H:i', strtotime($o_t)) . "-" . date('H:i', strtotime($c_t));
+
+            if ($now_min >= $o_m && $now_min < $c_m) {
                 $isOpen = true;
+                if ($current_priority <= 2) {
+                    $statusClass = 'dot-open'; $statusText = '● 營業中'; $current_priority = 2;
+                    $active_open = $o_t; $active_close = $c_t;
+                    if (($c_m - $now_min) <= 30) { $statusClass = 'dot-closing-soon'; $statusText = '● 即將打烊'; }
+                }
+            } else if ($now_min < $o_m && ($o_m - $now_min) <= 30) {
+                if ($current_priority < 1) { $statusClass = 'dot-opening-soon'; $statusText = '○ 即將開店'; $current_priority = 1; $active_open = $o_t; $active_close = $c_t; }
             }
         }
-
+        $row['status_class'] = $statusClass; $row['status_text'] = $statusText; $row['display_hours'] = implode(", ", $today_parts);
         $cafesArray[] = $row;
-        $mapData[] = [
-            'id' => $row['id'], 
-            'name' => $row['name'], 
-            'lat' => (float)($row['latitude'] ?? 25.035), 
-            'lng' => (float)($row['longitude'] ?? 121.445), 
-            'address' => $row['address'],
-            'rating' => (float)($row['rating'] ?? 0),
-            'opening_hours' => $row['opening_hours'],
-            'isOpen' => $isOpen // 將營業狀態傳給前端
-        ];
+        $mapData[] = [ 'id' => $row['id'], 'name' => $row['name'], 'lat' => (float)$row['latitude'], 'lng' => (float)$row['longitude'], 'address' => $row['address'], 'isOpen' => $isOpen, 'open_time' => $active_open, 'close_time' => $active_close, 'is_closed' => $is_closed_today ];
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>新莊咖啡地圖</title>
-    <!-- 引入外部 CSS -->
+    <title>新莊咖啡地圖 - SA-114</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    
-    <!-- 引入導覽列 -->
     <?php include 'navbar.php'; ?>
-    
     <div class="container">
-        
+        <!-- 地圖與圖例[cite: 5, 6] -->
         <div style="position: relative;">
-            <!-- 地圖區塊 -->
             <div id="map"></div>
             <div class="map-legend">
                 <strong>🕒 營業狀態</strong>
-                <hr style="margin: 5px 0; border: 0; border-top: 1px solid #eee;">
                 <div class="legend-item"><span class="dot dot-open"></span> 營業中</div>
-                <div class="legend-item"><span class="dot dot-closed"></span> 已打烊 / 公休</div>
+                <div class="legend-item"><span class="dot dot-closed"></span> 已打烊</div>
+                <div class="legend-item"><span class="dot dot-opening-soon"></span> 即將開店</div>
+                <div class="legend-item"><span class="dot dot-closing-soon"></span> 即將打烊</div>
             </div>
         </div>
 
-        <form method="GET">
+        <form method="GET" id="filterForm">
+            <!-- 恢復：頂部快速篩選標籤[cite: 4, 5] -->
             <div class="filter-header">
                 <div class="tag-container">
-                    <strong style="margin-right: 10px;">快速篩選：</strong>
-                    <label><input type="checkbox" name="socket" value="1" <?= $hasSocket ? 'checked' : ''; ?>>插座</label>
-                    <label><input type="checkbox" name="no_limit" value="1" <?= $hasNoLimit ? 'checked' : ''; ?>>不限時</label>
-                    <label><input type="checkbox" name="parking" value="1" <?= $hasParking ? 'checked' : ''; ?>>停車位</label>
-                    <label><input type="checkbox" name="wifi" value="1" <?= $hasWiFi ? 'checked' : ''; ?>>WiFi</label>
-                    <label><input type="checkbox" name="outdoor" value="1" <?= $hasOutdoor ? 'checked' : ''; ?>>戶外座位</label>
-                    <label><input type="checkbox" name="seats" value="1" <?= $hasSeat ? 'checked' : ''; ?>>室內座位</label>
-                    <label><input type="checkbox" name="dessert" value="1" <?= $hasDessert ? 'checked' : ''; ?>>甜點</label>
-                    <label><input type="checkbox" name="toilet" value="1" <?= $hasToilet ? 'checked' : ''; ?>>廁所</label>
-                    <label><input type="checkbox" name="no_min_consume" value="1" <?= $noMinConsume ? 'checked' : ''; ?>>低消限制</label>
+                    <strong style="margin-right: 10px;">快速篩選</strong>
+                    <?php 
+                    $tags = ['socket'=>'插座', 'no_limit'=>'不限時', 'parking'=>'停車位', 'wifi'=>'WiFi', 'outdoor'=>'戶外座位', 'seats'=>'室內座位', 'dessert'=>'甜點', 'toilet'=>'廁所', 'no_min_consume'=>'低消限制'];
+                    foreach($tags as $key => $lbl): ?>
+                        <label><input type="checkbox" name="<?= $key ?>" value="1" <?= isset($_GET[$key]) ? 'checked' : ''; ?>> <?= $lbl ?></label>
+                    <?php endforeach; ?>
                     <button type="submit" class="btn" style="margin-left: auto;">執行篩選</button>
                 </div>
             </div>
 
             <div class="main-layout">
+                <!-- 恢復：左側進階篩選區[cite: 4, 5] -->
                 <aside class="sidebar">
                     <div class="filter-section">
                         <h4>顧客評分</h4>
-                        <label><input type="radio" name="rating" value="3.5" <?= ($selectedRating == 3.5) ? 'checked' : ''; ?>> 3.5星以上</label><br>
-                        <label><input type="radio" name="rating" value="4.0" <?= ($selectedRating == 4.0) ? 'checked' : ''; ?>> 4.0星以上</label><br>
-                        <label><input type="radio" name="rating" value="4.5" <?= ($selectedRating == 4.5) ? 'checked' : ''; ?>> 4.5星以上</label><br>
-                        <label><input type="radio" name="rating" value="0" <?= ($selectedRating == 0) ? 'checked' : ''; ?>> 不限</label>
+                        <?php foreach ([4.5, 4.0, 3.5, 0] as $r): ?>
+                            <label><input type="radio" name="rating" value="<?= $r ?>" <?= ($selectedRating == $r) ? 'checked' : ''; ?>> <?= $r == 0 ? '不限' : $r.'星以上' ?></label><br>
+                        <?php endforeach; ?>
                     </div>
-
                     <div class="filter-section">
                         <h4>價格範圍 (低消)</h4>
-                        <label><input type="checkbox" name="price[]" value="1" <?= in_array("1", $selectedPriceGroups) ? 'checked' : ''; ?>> 1-50</label><br>
-                        <label><input type="checkbox" name="price[]" value="2" <?= in_array("2", $selectedPriceGroups) ? 'checked' : ''; ?>> 51-100</label><br>
-                        <label><input type="checkbox" name="price[]" value="3" <?= in_array("3", $selectedPriceGroups) ? 'checked' : ''; ?>> 101-150</label><br>
-                        <label><input type="checkbox" name="price[]" value="4" <?= in_array("4", $selectedPriceGroups) ? 'checked' : ''; ?>> 151-200</label><br>
-                        <label><input type="checkbox" name="price[]" value="5" <?= in_array("5", $selectedPriceGroups) ? 'checked' : ''; ?>> 201-500</label>
+                        <?php foreach (['1'=>'1-50', '2'=>'51-100', '3'=>'101-150', '4'=>'151-200', '5'=>'201-500'] as $v => $l): ?>
+                            <label><input type="checkbox" name="price[]" value="<?= $v ?>" <?= in_array($v, $selectedPriceGroups) ? 'checked' : ''; ?>> <?= $l ?></label><br>
+                        <?php endforeach; ?>
                     </div>
-
                     <div class="filter-section">
                         <h4>距離範圍</h4>
-                        <label><input type="radio" name="distance" value="0.5" <?= ($selectedDistance == 0.5) ? 'checked' : ''; ?>> 0.5km 內</label><br>
-                        <label><input type="radio" name="distance" value="1.0" <?= ($selectedDistance == 1.0) ? 'checked' : ''; ?>> 1.0km 內</label><br>
-                        <label><input type="radio" name="distance" value="2.0" <?= ($selectedDistance == 2.0) ? 'checked' : ''; ?>> 2.0km 內</label><br>
-                        <label><input type="radio" name="distance" value="0" <?= ($selectedDistance == 0) ? 'checked' : ''; ?>> 不限</label>
+                        <?php foreach ([0.5, 1.0, 2.0, 0] as $d): ?>
+                            <label><input type="radio" name="distance" value="<?= $d ?>" <?= ($selectedDistance == $d) ? 'checked' : ''; ?>> <?= $d == 0 ? '不限' : $d.'km 內' ?></label><br>
+                        <?php endforeach; ?>
                     </div>
-                    
-                    <button type="submit" class="btn" style="width: 100%;">套用篩選</button>
+                    <button type="submit" class="btn" style="width: 100%; margin-top: 20px;">套用所有篩選</button>
                 </aside>
 
-                <main class="card-list">
-                    <?php if (!empty($cafesArray)): ?>
-                        <?php foreach ($cafesArray as $row): ?>
-                            <div class="card" id="cafe-<?= $row['id'] ?>">
-                                <div class="rating">★ <?= $row['rating'] ?? '新開幕' ?></div>
-                                <h3><?= htmlspecialchars($row['name']); ?></h3>
-                                <p>📍 <?= htmlspecialchars($row['address']); ?></p>
-                                <p>📞 <?= htmlspecialchars($row['phone']); ?></p>
-                                <p>🕒 <strong>營業時間：</strong><br><?= nl2br(htmlspecialchars($row['opening_hours'])); ?></p>
-                                <p>💰 低消：<?= ($row['min_consumption'] == 0) ? "無低消" : $row['min_consumption'] . " 元"; ?></p>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <div style="grid-column: 1/-1; text-align: center; padding: 50px; background: #fff; border-radius: 15px;">
-                            沒有找到符合條件的咖啡廳，試試看減少篩選標籤吧！
-                        </div>
-                    <?php endif; ?>
-                </main>
+                <!-- 右側內容區[cite: 4, 5] -->
+                <div class="content-wrapper">
+                    <div class="search-container">
+                        <input type="text" name="search" id="keywordSearch" placeholder="搜尋店名或地址..." value="<?= $searchTerm ?>" class="search-input">
+                        <button type="submit" class="search-btn">🔍 搜尋</button>
+                    </div>
+
+                    <main class="card-list">
+                        <?php if(!empty($cafesArray)): ?>
+                            <?php foreach ($cafesArray as $row): ?>
+                                <div class="card cafe-card" data-name="<?= htmlspecialchars($row['name']) ?>" data-address="<?= htmlspecialchars($row['address']) ?>">
+                                    <h3><?= htmlspecialchars($row['name']) ?></h3>
+                                    <div class="status-tag">
+                                        <span class="dot <?= $row['status_class'] ?>"></span>
+                                        <strong class="<?= $row['status_class'] ?>-text"><?= $row['status_text'] ?></strong>
+                                    </div>
+                                    <p>📍 <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $row['latitude'] ?>,<?= $row['longitude'] ?>" target="_blank" class="nav-link"><?= htmlspecialchars($row['address']) ?></a></p>
+                                    <p>🕒 <strong>今日營業時間：</strong><br><?= htmlspecialchars($row['display_hours']) ?></p>
+                                    <div class="card-footer">
+                                        <a href="reviews.php?id=<?= $row['id'] ?>" class="review-btn">💬 查看與留言</a>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="no-result">沒有找到符合條件的咖啡廳，試著放寬篩選條件。</div>
+                        <?php endif; ?>
+                    </main>
+                </div>
             </div>
         </form>
     </div>
-
-    <!-- 傳遞 PHP 變數給 JS -->
-    <script>
-        window.cafeData = <?php echo json_encode($mapData); ?>;
-    </script>
-    
-    <!-- 引入外部 JS -->
+    <script>window.cafeData = <?php echo json_encode($mapData); ?>;</script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/map.js"></script>
-
 </body>
 </html>
