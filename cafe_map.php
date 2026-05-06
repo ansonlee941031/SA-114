@@ -10,7 +10,7 @@ $selectedRating = isset($_GET['rating']) ? (float)$_GET['rating'] : 0;
 $selectedDistance = isset($_GET['distance']) ? (float)$_GET['distance'] : 0;
 $selectedPriceGroups = isset($_GET['price']) ? (is_array($_GET['price']) ? $_GET['price'] : [$_GET['price']]) : [];
 
-// 執行 SQL 查詢[cite: 3, 5]
+// 執行 SQL 查詢
 $queryData = \App\CafeQueryBuilder::build($_GET);
 $stmt = mysqli_prepare($conn, $queryData['sql']);
 if ($stmt) {
@@ -50,9 +50,26 @@ if ($result) {
                 if ($current_priority < 1) { $statusClass = 'dot-opening-soon'; $statusText = '○ 即將開店'; $current_priority = 1; $active_open = $o_t; $active_close = $c_t; }
             }
         }
-        $row['status_class'] = $statusClass; $row['status_text'] = $statusText; $row['display_hours'] = implode(", ", $today_parts);
+        $formatted_hours = implode(", ", $today_parts);
+        $row['status_class'] = $statusClass; 
+        $row['status_text'] = $statusText; 
+        $row['display_hours'] = $formatted_hours;
+        
         $cafesArray[] = $row;
-        $mapData[] = [ 'id' => $row['id'], 'name' => $row['name'], 'lat' => (float)$row['latitude'], 'lng' => (float)$row['longitude'], 'address' => $row['address'], 'isOpen' => $isOpen, 'open_time' => $active_open, 'close_time' => $active_close, 'is_closed' => $is_closed_today ];
+        
+        // 修正：補齊 JSON 資料中的 today_hours 欄位，解決地圖顯示 undefined 問題[cite: 8]
+        $mapData[] = [ 
+            'id' => $row['id'], 
+            'name' => $row['name'], 
+            'lat' => (float)$row['latitude'], 
+            'lng' => (float)$row['longitude'], 
+            'address' => $row['address'], 
+            'today_hours' => $formatted_hours, // 關鍵欄位
+            'isOpen' => $isOpen, 
+            'open_time' => $active_open, 
+            'close_time' => $active_close, 
+            'is_closed' => $is_closed_today 
+        ];
     }
 }
 ?>
@@ -63,11 +80,19 @@ if ($result) {
     <title>新莊咖啡地圖 - SA-114</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* 修正：補齊圖例與標記點的顏色定義[cite: 8] */
+        .dot-opening-soon { background-color: #f1c40f !important; } /* 黃色 */
+        .dot-closing-soon { background-color: #e67e22 !important; } /* 橘色 */
+        
+        /* 確保文字顏色同步 */
+        .dot-opening-soon-text { color: #f1c40f; }
+        .dot-closing-soon-text { color: #e67e22; }
+    </style>
 </head>
 <body>
     <?php include 'navbar.php'; ?>
     <div class="container">
-        <!-- 地圖與圖例[cite: 5, 6] -->
         <div style="position: relative;">
             <div id="map"></div>
             <div class="map-legend">
@@ -80,7 +105,6 @@ if ($result) {
         </div>
 
         <form method="GET" id="filterForm">
-            <!-- 恢復：頂部快速篩選標籤[cite: 4, 5] -->
             <div class="filter-header">
                 <div class="tag-container">
                     <strong style="margin-right: 10px;">快速篩選</strong>
@@ -94,7 +118,6 @@ if ($result) {
             </div>
 
             <div class="main-layout">
-                <!-- 恢復：左側進階篩選區[cite: 4, 5] -->
                 <aside class="sidebar">
                     <div class="filter-section">
                         <h4>顧客評分</h4>
@@ -117,7 +140,6 @@ if ($result) {
                     <button type="submit" class="btn" style="width: 100%; margin-top: 20px;">套用所有篩選</button>
                 </aside>
 
-                <!-- 右側內容區[cite: 4, 5] -->
                 <div class="content-wrapper">
                     <div class="search-container">
                         <input type="text" name="search" id="keywordSearch" placeholder="搜尋店名或地址..." value="<?= $searchTerm ?>" class="search-input">
