@@ -26,6 +26,20 @@ $current_day = date('N'); $now_min = (int)date('H') * 60 + (int)date('i');
 if ($result) {
     while ($row = mysqli_fetch_assoc($result)) {
         $cafe_id = $row['id'];
+
+        // --- [新增] 檢查收藏狀態 ---
+        $is_favorite = false;
+        if (isset($_SESSION['user_id'])) {
+            $fav_sql = "SELECT 1 FROM favorite WHERE user_id = ? AND cafe_id = ?";
+            $fav_stmt = mysqli_prepare($conn, $fav_sql);
+            mysqli_stmt_bind_param($fav_stmt, "si", $_SESSION['user_id'], $cafe_id);
+            mysqli_stmt_execute($fav_stmt);
+            $fav_res = mysqli_stmt_get_result($fav_stmt);
+            $is_favorite = mysqli_num_rows($fav_res) > 0;
+        }
+        $row['is_favorite'] = $is_favorite;
+        // -------------------------
+
         $hour_res = mysqli_query($conn, "SELECT open_time, close_time, is_closed FROM cafe_hours WHERE cafe_id = $cafe_id AND day_of_week = $current_day");
         
         $statusClass = 'dot-closed'; $statusText = '○ 已打烊'; $isOpen = false; 
@@ -57,14 +71,13 @@ if ($result) {
         
         $cafesArray[] = $row;
         
-        // 修正：補齊 JSON 資料中的 today_hours 欄位，解決地圖顯示 undefined 問題[cite: 8]
         $mapData[] = [ 
             'id' => $row['id'], 
             'name' => $row['name'], 
             'lat' => (float)$row['latitude'], 
             'lng' => (float)$row['longitude'], 
             'address' => $row['address'], 
-            'today_hours' => $formatted_hours, // 關鍵欄位
+            'today_hours' => $formatted_hours,
             'isOpen' => $isOpen, 
             'open_time' => $active_open, 
             'close_time' => $active_close, 
@@ -79,15 +92,15 @@ if ($result) {
     <meta charset="UTF-8">
     <title>新莊咖啡地圖 - SA-114</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
     <style>
-        /* 修正：補齊圖例與標記點的顏色定義[cite: 8] */
-        .dot-opening-soon { background-color: #f1c40f !important; } /* 黃色 */
-        .dot-closing-soon { background-color: #e67e22 !important; } /* 橘色 */
-        
-        /* 確保文字顏色同步 */
+        .dot-opening-soon { background-color: #f1c40f !important; }
+        .dot-closing-soon { background-color: #e67e22 !important; }
         .dot-opening-soon-text { color: #f1c40f; }
         .dot-closing-soon-text { color: #e67e22; }
+        .fav-btn { transition: transform 0.2s ease; }
+        .fav-btn:hover { transform: scale(1.2); }
     </style>
 </head>
 <body>
@@ -150,7 +163,12 @@ if ($result) {
                         <?php if(!empty($cafesArray)): ?>
                             <?php foreach ($cafesArray as $row): ?>
                                 <div class="card cafe-card" data-name="<?= htmlspecialchars($row['name']) ?>" data-address="<?= htmlspecialchars($row['address']) ?>">
-                                    <h3><?= htmlspecialchars($row['name']) ?></h3>
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                        <h3 style="margin: 0;"><?= htmlspecialchars($row['name']) ?></h3>
+                                        <button type="button" class="fav-btn" onclick="toggleFav(<?= $row['id'] ?>, this)" style="background:none; border:none; cursor:pointer; font-size: 1.4rem; padding: 0;">
+                                            <i class="<?= $row['is_favorite'] ? 'fa-solid' : 'fa-regular' ?> fa-heart" style="color: <?= $row['is_favorite'] ? '#ff4d4d' : '#ccc' ?>;"></i>
+                                        </button>
+                                    </div>
                                     <div class="status-tag">
                                         <span class="dot <?= $row['status_class'] ?>"></span>
                                         <strong class="<?= $row['status_class'] ?>-text"><?= $row['status_text'] ?></strong>
@@ -173,5 +191,38 @@ if ($result) {
     <script>window.cafeData = <?php echo json_encode($mapData); ?>;</script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/map.js"></script>
+    <script>
+    async function toggleFav(cafeId, btn) {
+        const icon = btn.querySelector('i');
+        const isAdding = icon.classList.contains('fa-regular');
+        const action = isAdding ? 'add' : 'remove';
+
+        try {
+            const response = await fetch('api_favorite.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: action, cafe_id: cafeId })
+            });
+            
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                if (isAdding) {
+                    icon.classList.replace('fa-regular', 'fa-solid');
+                    icon.style.color = '#ff4d4d';
+                } else {
+                    icon.classList.replace('fa-solid', 'fa-regular');
+                    icon.style.color = '#ccc';
+                }
+            } else {
+                alert(data.message);
+                if (data.message.includes('登入')) window.location.href = 'login.php';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('操作失敗，請稍後再試');
+        }
+    }
+    </script>
 </body>
 </html>
