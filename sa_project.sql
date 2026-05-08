@@ -2,10 +2,10 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- 主機： 127.0.0.1
--- 產生時間： 2026-05-06 10:56:11
+-- 主機： 127.0.0.1:3307
+-- 產生時間： 2026-05-08 08:34:06
 -- 伺服器版本： 10.4.32-MariaDB
--- PHP 版本： 8.0.30
+-- PHP 版本： 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -429,6 +429,26 @@ INSERT INTO `cafe_shop` (`id`, `name`, `address`, `phone`, `opening_hours`, `dis
 -- --------------------------------------------------------
 
 --
+-- 資料表結構 `favorite`
+--
+
+CREATE TABLE `favorite` (
+  `id` int(11) NOT NULL,
+  `user_id` varchar(255) NOT NULL COMMENT '對應 Google 帳號的唯一識別碼',
+  `cafe_id` int(11) NOT NULL COMMENT '對應咖啡廳主表的 ID',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp() COMMENT '收藏時間'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- 傾印資料表的資料 `favorite`
+--
+
+INSERT INTO `favorite` (`id`, `user_id`, `cafe_id`, `created_at`) VALUES
+(4, '2', 1, '2026-05-08 06:28:51');
+
+-- --------------------------------------------------------
+
+--
 -- 資料表結構 `label`
 --
 
@@ -534,7 +554,8 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `google_id`, `name`, `email`, `picture`, `created_at`) VALUES
-(1, '105995060049267727290', 'Anson Lee', 'ansonlee1031@gmail.com', 'https://lh3.googleusercontent.com/a/ACg8ocL1IGzmQxbT7o1OXKyv8YCV0IR8xSIf3Z-LcdvTSRemSnwbaPA=s96-c', '2026-05-02 15:12:51');
+(1, '105995060049267727290', 'Anson Lee', 'ansonlee1031@gmail.com', 'https://lh3.googleusercontent.com/a/ACg8ocL1IGzmQxbT7o1OXKyv8YCV0IR8xSIf3Z-LcdvTSRemSnwbaPA=s96-c', '2026-05-02 15:12:51'),
+(2, '113185472505488916253', 'Wu Shin', 'shinw060310@gmail.com', 'https://lh3.googleusercontent.com/a/ACg8ocLOn3bs4O1gkwIWivZ653FihFOHLLg0XvY3FKmtxvoQSesd8g=s96-c', '2026-05-08 05:59:13');
 
 --
 -- 已傾印資料表的索引
@@ -559,6 +580,14 @@ ALTER TABLE `cafe_reviews`
 ALTER TABLE `cafe_shop`
   ADD PRIMARY KEY (`id`),
   ADD KEY `distance_meters` (`distance_meters`);
+
+--
+-- 資料表索引 `favorite`
+--
+ALTER TABLE `favorite`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `user_cafe_unique` (`user_id`,`cafe_id`),
+  ADD KEY `idx_user` (`user_id`);
 
 --
 -- 資料表索引 `label`
@@ -603,10 +632,16 @@ ALTER TABLE `cafe_shop`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=203;
 
 --
+-- 使用資料表自動遞增(AUTO_INCREMENT) `favorite`
+--
+ALTER TABLE `favorite`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+--
 -- 使用資料表自動遞增(AUTO_INCREMENT) `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- 已傾印資料表的限制式
@@ -628,3 +663,4 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
