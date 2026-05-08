@@ -3,7 +3,6 @@
 // 確保網頁載入完成後再執行地圖渲染
 document.addEventListener("DOMContentLoaded", function() {
     var map = L.map('map', { scrollWheelZoom: true }).setView([25.035, 121.445], 15);
-    
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap &copy; CARTO'
     }).addTo(map);
@@ -98,3 +97,34 @@ window.scrollToCafe = function(id) {
         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 };
+
+async function toggleFav(cafeId, btn) {
+    const icon = btn.querySelector('i');
+    const isAdding = icon.classList.contains('fa-regular'); // 判斷目前是空心還是實心
+    const action = isAdding ? 'add' : 'remove';
+
+    try {
+        const response = await fetch('api_favorite.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: action, cafe_id: cafeId })
+        });
+        
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            // 切換圖示
+            if (isAdding) {
+                icon.classList.replace('fa-regular', 'fa-solid');
+                icon.style.color = '#ff4d4d';
+            } else {
+                icon.classList.replace('fa-solid', 'fa-regular');
+                icon.style.color = '#ccc';
+            }
+        } else {
+            alert(data.message);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
