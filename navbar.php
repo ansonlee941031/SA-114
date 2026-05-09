@@ -17,6 +17,13 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 </a>
             </li>
             
+            <li class="<?= ($current_page == 'route_plan.php') ? 'active' : '' ?>">
+                <a href="route_plan.php">
+                    <span class="m-icon">🚌</span>
+                    <span class="m-label">路線</span>
+                </a>
+            </li>
+            
             <?php if (isset($_SESSION['user_id'])): ?>
                 <li class="<?= ($current_page == 'favorites.php') ? 'active' : '' ?>">
                     <a href="favorite.php">
@@ -40,7 +47,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <?php else: ?>
                 <li>
                     <a href="<?= $googleLoginUrl ?>" class="btn-google app-google-btn">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_Color_Icon.svg" alt="G">
                         <span>登入</span>
                     </a>
                 </li>
