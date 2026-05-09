@@ -1,0 +1,173 @@
+<?php
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
+require_once __DIR__ . '/config/db.php';
+
+// 獲取目前選擇的路線
+$selectedRoute = $_GET['route'] ?? '235';
+$isMRT = (strpos($selectedRoute, '捷運') !== false);
+
+// 查詢該路線經過的所有店家及其座標
+$sql = "SELECT s.id, s.name, s.address, s.latitude, s.longitude, t.transport_name 
+        FROM cafe_shop s
+        JOIN cafe_transport t ON s.id = t.cafe_id
+        WHERE t.transport_name = ? OR t.transport_name LIKE ?";
+$searchParam = "%$selectedRoute%";
+$stmt = mysqli_prepare($conn, $sql);
+mysqli_stmt_bind_param($stmt, "ss", $selectedRoute, $searchParam);
+mysqli_stmt_execute($stmt);
+$result = mysqli_stmt_get_result($stmt);
+
+$stations = [];
+$cafes = [];
+
+while ($row = mysqli_fetch_assoc($result)) {
+    $lat = (float)$row['latitude']; $lng = (float)$row['longitude'];
+    $stName = $row['transport_name']; $cafeName = $row['name'];
+    
+    // 1. 捷運站點座標修正
+    if ($isMRT && !isset($stations[$stName])) {
+        if (strpos($stName, '新北產業園區站') !== false) {
+            $lat = 25.06155; $lng = 121.45985;
+        } elseif (strpos($stName, '輔大站') !== false) {
+            $lat = 25.03500; $lng = 121.43194;
+        } elseif (strpos($stName, '新莊站') !== false) {
+            $lat = 25.03472; $lng = 121.45583;
+        }
+        $stations[$stName] = ['name' => $stName, 'lat' => $lat, 'lng' => $lng];
+    }
+    
+    // 2. 店家座標手動校正 (根據使用者資料提供)
+    $cafeLat = $lat; $cafeLng = $lng;
+    if (strpos($cafeName, '左轉靠右') !== false) { $cafeLat = 25.06040; $cafeLng = 121.45820; }
+    elseif (strpos($cafeName, '漂夢島') !== false) { $cafeLat = 25.06450; $cafeLng = 121.45630; }
+    elseif (strpos($cafeName, "D'or caf'e") !== false || strpos($cafeName, '兜咖啡') !== false) { $cafeLat = 25.06280; $cafeLng = 121.45920; }
+    elseif (strpos($cafeName, 'May i COFFEE you') !== false || strpos($cafeName, '美艾咖啡友') !== false) { $cafeLat = 25.05602; $cafeLng = 121.45145; }
+    elseif (strpos($cafeName, 'm&y cafe') !== false) { $cafeLat = 25.04350; $cafeLng = 121.43420; }
+    elseif (strpos($cafeName, '朝暮豆行') !== false) { $cafeLat = 25.03450; $cafeLng = 121.44685; }
+    elseif (strpos($cafeName, '山林咖啡') !== false) { $cafeLat = 25.02105; $cafeLng = 121.43037; }
+    elseif (strpos($cafeName, '林椐咖啡') !== false) { $cafeLat = 25.03550; $cafeLng = 121.45030; }
+    $cafes[] = ['id' => $row['id'], 'name' => $cafeName, 'lat' => $cafeLat, 'lng' => $cafeLng];
+}
+
+$routeListSql = "SELECT DISTINCT transport_name FROM cafe_transport ORDER BY transport_name";
+$routeListRes = mysqli_query($conn, $routeListSql);
+
+// 公車轉折點定義 (維持原邏輯)
+$allRoutePaths = [
+    '235' => [[25.0165,121.421],[25.0215,121.4245],[25.0345,121.44685],[25.03472,121.45583]],
+    '299' => [[25.02,121.42],[25.0345,121.44685],[25.0485,121.455],[25.061,121.4655]],
+    '615' => [[25.0215,121.4245],[25.0425,121.4445],[25.061,121.4655],[25.049,121.5135]],
+    '813' => [[25.0605,121.4455],[25.0485,121.45],[25.0505,121.46],[25.0415,121.4625]],
+    '845' => [[25.0215,121.4245],[25.0385,121.4455],[25.0485,121.455]],
+    '859' => [[25.06,121.445],[25.045,121.445],[25.0345,121.44685],[25.028,121.4315],[25.021,121.418],[25.025,121.41]],
+    '99'  => [[25.0165,121.4245],[25.0215,121.4245],[25.0345,121.44685],[25.041,121.4465],[25.0485,121.455],[25.046,121.4625]]
+];
+?>
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>路線規劃 - 咖啡巡禮</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .route-container { display: flex; gap: 20px; margin-top: 20px; height: 600px; }
+        #routeMap { flex: 2; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .route-sidebar { flex: 1; background: #fff; padding: 20px; border-radius: 15px; overflow-y: auto; }
+        .cafe-item-block { margin-bottom: 10px; padding: 12px; background: #fdfaf8; border-radius: 8px; border-left: 4px solid #8d6e63; }
+        .cafe-item-block a { color: #8d6e63; text-decoration: none; font-weight: bold; }
+        .selector-box { background: #fff; padding: 15px; border-radius: 15px; margin-bottom: 20px; }
+        .dot-mrt { background-color: #ff4d4d; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 5px rgba(255,77,77,0.5); }
+        .dot-cafe { background-color: #1976d2; border: 2px solid white; border-radius: 50%; }
+        .legend { background: white; padding: 10px; border-radius: 8px; line-height: 22px; box-shadow: 0 0 10px rgba(0,0,0,0.1); font-size: 12px; }
+        .legend i { width: 10px; height: 10px; display: inline-block; border-radius: 50%; margin-right: 5px; }
+    </style>
+</head>
+<body>
+    <?php include 'navbar.php'; ?>
+    <div class="container">
+        <h2><i class="fa-solid fa-map-location-dot"></i> <?= htmlspecialchars($selectedRoute) ?> 路線規劃</h2>
+        <div class="selector-box">
+            <form method="GET">
+                <label>選擇路線：</label>
+                <select name="route" onchange="this.form.submit()" class="search-input" style="width: auto;">
+                    <?php while($r = mysqli_fetch_assoc($routeListRes)): ?>
+                        <option value="<?= $r['transport_name'] ?>" <?= $selectedRoute == $r['transport_name'] ? 'selected' : '' ?>>
+                            <?= $r['transport_name'] ?>
+                        </option>
+                    <?php endwhile; ?>
+                </select>
+            </form>
+        </div>
+
+        <div class="route-container">
+            <div id="routeMap"></div>
+            <aside class="route-sidebar">
+                <h3>沿線店家清單</h3>
+                <?php foreach ($cafes as $c): ?>
+                    <div class="cafe-item-block">
+                        <a href="cafe_map.php?id=<?= $c['id'] ?>">☕ <?= htmlspecialchars($c['name']) ?></a>
+                    </div>
+                <?php endforeach; ?>
+            </aside>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+    <script>
+        var map = L.map('routeMap').setView([25.045, 121.450], 14);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+
+        var currentRoute = <?php echo json_encode($selectedRoute); ?>;
+        var stations = <?php echo json_encode(array_values($stations)); ?>;
+        var cafes = <?php echo json_encode($cafes); ?>;
+        var allRoutePaths = <?php echo json_encode($allRoutePaths); ?>;
+        var markers = [];
+
+        // 1. 繪製公車路徑 (核心改動：自動貼合道路)
+        var activePath = allRoutePaths[currentRoute] || [];
+        if (activePath.length > 1) {
+            L.Routing.control({
+                waypoints: activePath.map(p => L.latLng(p[0], p[1])),
+                lineOptions: {
+                    styles: [{ color: '#FFD700', opacity: 0.7, weight: 8 }]
+                },
+                addWaypoints: false,
+                draggableWaypoints: false,
+                fitSelectedRoutes: true,
+                show: false,
+                createMarker: function() { return null; } 
+            }).addTo(map);
+        }
+
+        // 2. 標註捷運站
+        var mrtIcon = L.divIcon({ className: 'dot-mrt', iconSize: [14, 14] });
+        stations.forEach(function(st) {
+            var m = L.marker([st.lat, st.lng], { icon: mrtIcon, zIndexOffset: 1000 })
+                     .addTo(map).bindPopup(`<b>🚉 ${st.name}</b>`);
+            markers.push(m);
+        });
+
+        // 3. 標註咖啡店家
+        var cafeIcon = L.divIcon({ className: 'dot-cafe', iconSize: [12, 12] });
+        cafes.forEach(function(c) {
+            var m = L.marker([c.lat, c.lng], { icon: cafeIcon })
+                     .addTo(map).bindPopup(`<b>☕ ${c.name}</b><br><a href="cafe_map.php?id=${c.id}">詳細資訊</a>`);
+            markers.push(m);
+        });
+
+        // 4. 圖例
+        var legend = L.control({position: 'bottomright'});
+        legend.onAdd = function (map) {
+            var div = L.DomUtil.create('div', 'legend');
+            div.innerHTML += '<i style="background: #FFD700; border-radius: 0; height: 3px; width: 15px;"></i> 公車路徑<br>';
+            div.innerHTML += '<i style="background: #ff4d4d"></i> 捷運站點<br>';
+            div.innerHTML += '<i style="background: #1976d2"></i> 咖啡店家';
+            return div;
+        };
+        legend.addTo(map);
+    </script>
+</body>
+</html>
