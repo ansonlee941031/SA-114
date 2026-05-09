@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- 主機： 127.0.0.1:3307
--- 產生時間： 2026-05-08 08:34:06
+-- 產生時間： 2026-05-09 20:31:35
 -- 伺服器版本： 10.4.32-MariaDB
 -- PHP 版本： 8.2.12
 
@@ -337,6 +337,27 @@ INSERT INTO `cafe_hours` (`hour_id`, `cafe_id`, `day_of_week`, `open_time`, `clo
 -- --------------------------------------------------------
 
 --
+-- 資料表結構 `cafe_menus`
+--
+
+CREATE TABLE `cafe_menus` (
+  `id` int(11) NOT NULL,
+  `cafe_id` int(11) NOT NULL,
+  `user_name` varchar(100) DEFAULT NULL,
+  `menu_image_path` varchar(255) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- 傾印資料表的資料 `cafe_menus`
+--
+
+INSERT INTO `cafe_menus` (`id`, `cafe_id`, `user_name`, `menu_image_path`, `created_at`) VALUES
+(5, 1, 'Wu Shin', 'uploads/menus/menu_69ff72fb16624.jpg', '2026-05-09 17:46:35');
+
+-- --------------------------------------------------------
+
+--
 -- 資料表結構 `cafe_reviews`
 --
 
@@ -346,19 +367,26 @@ CREATE TABLE `cafe_reviews` (
   `user_id` varchar(100) NOT NULL,
   `user_name` varchar(50) NOT NULL DEFAULT '匿名小幫手',
   `comment` text NOT NULL,
+  `rating` int(11) DEFAULT 5,
   `helpful_count` int(11) DEFAULT 0,
   `not_helpful_count` int(11) DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `image_path` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- 傾印資料表的資料 `cafe_reviews`
 --
 
-INSERT INTO `cafe_reviews` (`id`, `cafe_id`, `user_id`, `user_name`, `comment`, `helpful_count`, `not_helpful_count`, `created_at`) VALUES
-(1, 1, '', 'Anson Lee', 'test', 21, 1, '2026-05-06 08:17:06'),
-(2, 1, '', 'Anson Lee', 'test', 1, 2, '2026-05-06 08:26:36'),
-(3, 1, '', 'Anson Lee', 'test', 0, 1, '2026-05-06 08:55:33');
+INSERT INTO `cafe_reviews` (`id`, `cafe_id`, `user_id`, `user_name`, `comment`, `rating`, `helpful_count`, `not_helpful_count`, `created_at`, `image_path`) VALUES
+(1, 1, '', 'Anson Lee', 'test', 5, 21, 1, '2026-05-06 08:17:06', NULL),
+(2, 1, '', 'Anson Lee', 'test', 5, 1, 3, '2026-05-06 08:26:36', NULL),
+(3, 1, '', 'Anson Lee', 'test', 5, 0, 2, '2026-05-06 08:55:33', NULL),
+(19, 1, '', 'Wu Shin', '主廚只是個萌萌的小蛋仔，所以即使他做的東西再難吃也請大家不要欺負他，哦對了菜單是主廚頭上的頭套，有什麼就吃什麼', 5, 1, 0, '2026-05-09 17:51:13', 'uploads/reviews/rev_69ff74114e0a8.jpg'),
+(20, 1, '', 'Wu Shin', '主廚只是個萌萌的小蛋仔，所以即使他做的東西再難吃也請大家不要欺負他，哦對了菜單是主廚頭上的頭套，有什麼就吃什麼', 5, 0, 0, '2026-05-09 17:51:13', 'uploads/reviews/rev_69ff74114f498.jpg'),
+(21, 1, '', 'Wu Shin', '主廚只是個萌萌的小蛋仔，所以即使他做的東西再難吃也請大家不要欺負他，哦對了菜單是主廚頭上的頭套，有什麼就吃什麼', 5, 0, 0, '2026-05-09 17:51:13', 'uploads/reviews/rev_69ff7411507cf.jpg'),
+(23, 1, '', 'Wu Shin', '另一個主廚秀色可餐還會拉小提琴', 5, 1, 0, '2026-05-09 18:16:39', 'uploads/reviews/rev_69ff7a07ea800.jpg'),
+(24, 1, '', 'Wu Shin', '為什麼店裡不能用顏值支付', 1, 1, 0, '2026-05-09 18:17:48', NULL);
 
 -- --------------------------------------------------------
 
@@ -429,6 +457,170 @@ INSERT INTO `cafe_shop` (`id`, `name`, `address`, `phone`, `opening_hours`, `dis
 -- --------------------------------------------------------
 
 --
+-- 資料表結構 `cafe_transport`
+--
+
+CREATE TABLE `cafe_transport` (
+  `id` int(11) NOT NULL,
+  `cafe_id` int(11) NOT NULL,
+  `transport_type` enum('mrt','bus') NOT NULL,
+  `transport_name` varchar(100) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- 傾印資料表的資料 `cafe_transport`
+--
+
+INSERT INTO `cafe_transport` (`id`, `cafe_id`, `transport_type`, `transport_name`) VALUES
+(1, 1, 'mrt', '橘線輔大捷運站'),
+(2, 1, 'bus', '299'),
+(3, 1, 'bus', '845'),
+(4, 1, 'bus', '615'),
+(5, 1, 'bus', '859'),
+(6, 1, 'bus', '99'),
+(7, 2, 'mrt', '橘線輔大捷運站'),
+(8, 2, 'bus', '299'),
+(9, 2, 'bus', '845'),
+(10, 2, 'bus', '615'),
+(11, 2, 'bus', '859'),
+(12, 2, 'bus', '99'),
+(13, 3, 'mrt', '橘線輔大捷運站'),
+(14, 3, 'bus', '299'),
+(15, 3, 'bus', '845'),
+(16, 3, 'bus', '615'),
+(17, 3, 'bus', '859'),
+(18, 3, 'bus', '99'),
+(19, 4, 'mrt', '橘線輔大捷運站'),
+(20, 4, 'bus', '299'),
+(21, 4, 'bus', '845'),
+(22, 4, 'bus', '615'),
+(23, 4, 'bus', '859'),
+(24, 4, 'bus', '99'),
+(25, 5, 'mrt', '橘線輔大捷運站'),
+(26, 5, 'bus', '299'),
+(27, 5, 'bus', '845'),
+(28, 5, 'bus', '615'),
+(29, 5, 'bus', '859'),
+(30, 5, 'bus', '99'),
+(31, 6, 'mrt', '橘線輔大捷運站'),
+(32, 6, 'bus', '299'),
+(33, 6, 'bus', '845'),
+(34, 6, 'bus', '615'),
+(35, 6, 'bus', '859'),
+(36, 6, 'bus', '99'),
+(37, 7, 'mrt', '橘線輔大捷運站'),
+(38, 7, 'bus', '299'),
+(39, 7, 'bus', '845'),
+(40, 7, 'bus', '615'),
+(41, 7, 'bus', '859'),
+(42, 7, 'bus', '99'),
+(43, 8, 'mrt', '橘線輔大捷運站'),
+(44, 8, 'bus', '299'),
+(45, 8, 'bus', '845'),
+(46, 8, 'bus', '615'),
+(47, 8, 'bus', '859'),
+(48, 8, 'bus', '99'),
+(49, 9, 'mrt', '橘線輔大捷運站'),
+(50, 9, 'bus', '299'),
+(51, 9, 'bus', '845'),
+(52, 9, 'bus', '615'),
+(53, 9, 'bus', '859'),
+(54, 9, 'bus', '99'),
+(55, 10, 'mrt', '橘線輔大捷運站'),
+(56, 10, 'bus', '299'),
+(57, 10, 'bus', '845'),
+(58, 10, 'bus', '615'),
+(59, 10, 'bus', '859'),
+(60, 10, 'bus', '99'),
+(61, 200, 'mrt', '橘線輔大捷運站'),
+(62, 200, 'bus', '299'),
+(63, 200, 'bus', '845'),
+(64, 200, 'bus', '615'),
+(65, 200, 'bus', '859'),
+(66, 200, 'bus', '99'),
+(67, 201, 'mrt', '橘線輔大捷運站'),
+(68, 201, 'bus', '299'),
+(69, 201, 'bus', '845'),
+(70, 201, 'bus', '615'),
+(71, 201, 'bus', '859'),
+(72, 201, 'bus', '99'),
+(73, 188, 'mrt', '橘線輔大捷運站'),
+(74, 188, 'bus', '299'),
+(75, 188, 'bus', '845'),
+(76, 188, 'bus', '615'),
+(77, 188, 'bus', '859'),
+(78, 188, 'bus', '99'),
+(79, 174, 'bus', '299'),
+(80, 174, 'bus', '845'),
+(81, 174, 'bus', '615'),
+(82, 174, 'bus', '859'),
+(83, 174, 'bus', '99'),
+(84, 196, 'mrt', '橘線輔大捷運站'),
+(85, 196, 'bus', '299'),
+(86, 196, 'bus', '845'),
+(87, 196, 'bus', '615'),
+(88, 196, 'bus', '859'),
+(89, 196, 'bus', '99'),
+(90, 176, 'mrt', '黃線捷運幸福站'),
+(91, 176, 'bus', '813'),
+(95, 175, 'mrt', '黃線捷運捷運頭前庄站'),
+(96, 175, 'bus', '813'),
+(98, 177, 'mrt', '黃線捷運捷運頭前庄站'),
+(99, 177, 'bus', '299'),
+(100, 177, 'bus', '99'),
+(101, 172, 'mrt', '黃線捷運捷運新莊站'),
+(102, 172, 'bus', '299'),
+(103, 172, 'bus', '99'),
+(104, 183, 'mrt', '黃線捷運捷運新莊站'),
+(105, 183, 'bus', '299'),
+(106, 183, 'bus', '99'),
+(107, 193, 'mrt', '黃線捷運捷運新莊站'),
+(108, 193, 'bus', '299'),
+(109, 193, 'bus', '99'),
+(110, 199, 'mrt', '黃線捷運幸福站'),
+(111, 199, 'bus', '299'),
+(112, 186, 'mrt', '黃線捷運新北產業園區站'),
+(113, 202, 'mrt', '黃線捷運幸福站'),
+(114, 202, 'bus', '299'),
+(115, 197, 'mrt', '黃線捷運捷運新莊站'),
+(116, 197, 'bus', '235'),
+(117, 180, 'mrt', '黃線捷運捷運新莊站'),
+(118, 180, 'bus', '235'),
+(119, 198, 'mrt', '黃線捷運新北產業園區站'),
+(120, 198, 'bus', '299'),
+(121, 181, 'mrt', '橘線迴龍捷運站'),
+(122, 179, 'bus', '859'),
+(123, 178, 'mrt', '黃線捷運新北產業園區站'),
+(124, 182, 'mrt', '橘線丹鳳捷運站'),
+(125, 182, 'bus', '235'),
+(126, 182, 'bus', '99'),
+(127, 184, 'bus', '235'),
+(128, 184, 'bus', '99'),
+(129, 184, 'bus', '859'),
+(130, 185, 'bus', '299'),
+(131, 185, 'bus', '99'),
+(132, 189, 'bus', '235'),
+(133, 189, 'bus', '99'),
+(134, 189, 'bus', '859'),
+(135, 190, 'mrt', '黃線捷運幸福站'),
+(136, 190, 'bus', '299'),
+(137, 190, 'bus', '99'),
+(138, 192, 'mrt', '黃線捷運捷運新莊站'),
+(139, 192, 'bus', '235'),
+(140, 173, 'mrt', '黃線捷運捷運新莊站'),
+(141, 173, 'bus', '235'),
+(142, 191, 'mrt', '黃線捷運捷運新莊站'),
+(143, 191, 'bus', '235'),
+(144, 194, 'mrt', '黃線捷運捷運新莊站'),
+(145, 194, 'bus', '235'),
+(146, 194, 'bus', '299'),
+(147, 195, 'mrt', '黃線捷運幸福站'),
+(148, 195, 'bus', '299'),
+(149, 195, 'bus', '235');
+
+-- --------------------------------------------------------
+
+--
 -- 資料表結構 `favorite`
 --
 
@@ -444,7 +636,7 @@ CREATE TABLE `favorite` (
 --
 
 INSERT INTO `favorite` (`id`, `user_id`, `cafe_id`, `created_at`) VALUES
-(4, '2', 1, '2026-05-08 06:28:51');
+(7, '2', 180, '2026-05-09 16:27:54');
 
 -- --------------------------------------------------------
 
@@ -532,7 +724,16 @@ CREATE TABLE `review_reactions` (
 INSERT INTO `review_reactions` (`review_id`, `user_id`, `action_type`) VALUES
 (1, '1', 'helpful'),
 (2, '1', 'not_helpful'),
-(3, '1', 'not_helpful');
+(2, '2', 'not_helpful'),
+(3, '1', 'not_helpful'),
+(3, '2', 'not_helpful'),
+(4, '2', 'helpful'),
+(11, '2', 'helpful'),
+(14, '2', 'helpful'),
+(15, '2', 'helpful'),
+(19, '2', 'helpful'),
+(23, '2', 'helpful'),
+(24, '2', 'helpful');
 
 -- --------------------------------------------------------
 
@@ -569,6 +770,12 @@ ALTER TABLE `cafe_hours`
   ADD KEY `cafe_id` (`cafe_id`);
 
 --
+-- 資料表索引 `cafe_menus`
+--
+ALTER TABLE `cafe_menus`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- 資料表索引 `cafe_reviews`
 --
 ALTER TABLE `cafe_reviews`
@@ -580,6 +787,13 @@ ALTER TABLE `cafe_reviews`
 ALTER TABLE `cafe_shop`
   ADD PRIMARY KEY (`id`),
   ADD KEY `distance_meters` (`distance_meters`);
+
+--
+-- 資料表索引 `cafe_transport`
+--
+ALTER TABLE `cafe_transport`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `cafe_id` (`cafe_id`);
 
 --
 -- 資料表索引 `favorite`
@@ -620,10 +834,16 @@ ALTER TABLE `cafe_hours`
   MODIFY `hour_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=370;
 
 --
+-- 使用資料表自動遞增(AUTO_INCREMENT) `cafe_menus`
+--
+ALTER TABLE `cafe_menus`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+--
 -- 使用資料表自動遞增(AUTO_INCREMENT) `cafe_reviews`
 --
 ALTER TABLE `cafe_reviews`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
 
 --
 -- 使用資料表自動遞增(AUTO_INCREMENT) `cafe_shop`
@@ -632,10 +852,16 @@ ALTER TABLE `cafe_shop`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=203;
 
 --
+-- 使用資料表自動遞增(AUTO_INCREMENT) `cafe_transport`
+--
+ALTER TABLE `cafe_transport`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=150;
+
+--
 -- 使用資料表自動遞增(AUTO_INCREMENT) `favorite`
 --
 ALTER TABLE `favorite`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- 使用資料表自動遞增(AUTO_INCREMENT) `users`
@@ -663,4 +889,3 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-
