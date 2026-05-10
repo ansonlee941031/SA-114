@@ -271,7 +271,7 @@ if ($result) {
                 }
             } else {
                 alert(data.message);
-                if (data.message.includes('登入')) window.location.href = 'login.php';
+                if (data.message.includes('登入')) window.location.href = '<?= $googleLoginUrl ?>';
             }
         } catch (error) { console.error('Error:', error); }
     }

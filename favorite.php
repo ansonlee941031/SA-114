@@ -5,7 +5,7 @@ include_once __DIR__ . '/config/google_config.php';
 
 // 檢查使用者是否登入
 if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php"); // 若未登入則導向登入頁
+    header("Location: $googleLoginUrl"); // 若未登入則導向登入頁
     exit;
 }
 
