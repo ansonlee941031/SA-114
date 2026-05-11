@@ -10,7 +10,7 @@ $selectedRating = isset($_GET['rating']) ? (float)$_GET['rating'] : 0;
 $selectedDistance = isset($_GET['distance']) ? (float)$_GET['distance'] : 0;
 $selectedPriceGroups = isset($_GET['price']) ? (is_array($_GET['price']) ? $_GET['price'] : [$_GET['price']]) : [];
 
-// --- 接收從 route_plan.php 傳來的店家 ID ---
+// 接收從 route_plan.php 傳來的店家 ID
 $targetCafeId = isset($_GET['id']) ? (int)$_GET['id'] : null;
 
 // 執行 SQL 查詢
@@ -33,7 +33,7 @@ if ($result) {
         $lat = (float)$row['latitude'];
         $lng = (float)$row['longitude'];
 
-        // --- [新增] 座標校正邏輯：確保標點正確 ---
+        // --- [保留原有] 座標校正邏輯 ---
         if (strpos($cafeName, '左轉靠右') !== false) { $lat = 25.03221100; $lng = 121.44773300; }
         elseif (strpos($cafeName, '漂夢島') !== false) { $lat = 25.06321100; $lng = 121.45552200; }
         elseif (strpos($cafeName, "D'or caf'e") !== false || strpos($cafeName, '兜咖啡') !== false) { $lat = 25.06151100; $lng = 121.45992200; }
@@ -43,12 +43,15 @@ if ($result) {
         elseif (strpos($cafeName, '山林咖啡') !== false) { $lat = 25.02113300; $lng = 121.42554400; }
         elseif (strpos($cafeName, '林椐咖啡') !== false) { $lat = 25.02556600; $lng = 121.41957700; }
         
-        // 捷運站點模擬校正 (若搜尋結果包含站名)
         if (strpos($cafeName, '迴龍站') !== false) { $lat = 25.02190; $lng = 121.41130; }
         elseif (strpos($cafeName, '新莊站') !== false) { $lat = 25.03472; $lng = 121.45583; }
 
         $row['latitude'] = $lat;
         $row['longitude'] = $lng;
+
+        // 距離格式化
+        $dist = $row['distance_meters'] ?? 0;
+        $row['dist_text'] = ($dist >= 1000) ? number_format($dist / 1000, 1) . ' km' : $dist . ' m';
 
         // 檢查收藏狀態
         $is_favorite = false;
@@ -62,8 +65,8 @@ if ($result) {
         }
         $row['is_favorite'] = $is_favorite;
 
+        // 營業時間處理
         $hour_res = mysqli_query($conn, "SELECT open_time, close_time, is_closed FROM cafe_hours WHERE cafe_id = $cafe_id AND day_of_week = $current_day");
-        
         $statusClass = 'dot-closed'; $statusText = '○ 已打烊'; $isOpen = false; 
         $active_open = null; $active_close = null; $is_closed_today = 1; $current_priority = 0; $today_parts = [];
 
@@ -92,18 +95,10 @@ if ($result) {
         $row['display_hours'] = $formatted_hours;
         
         $cafesArray[] = $row;
-        
         $mapData[] = [ 
-            'id' => $row['id'], 
-            'name' => $row['name'], 
-            'lat' => (float)$row['latitude'], 
-            'lng' => (float)$row['longitude'], 
-            'address' => $row['address'], 
-            'today_hours' => $formatted_hours,
-            'isOpen' => $isOpen, 
-            'open_time' => $active_open, 
-            'close_time' => $active_close, 
-            'is_closed' => $is_closed_today 
+            'id' => $row['id'], 'name' => $row['name'], 'lat' => $lat, 'lng' => $lng, 
+            'address' => $row['address'], 'today_hours' => $formatted_hours, 'isOpen' => $isOpen,
+            'open_time' => $active_open, 'close_time' => $active_close, 'is_closed' => $is_closed_today 
         ];
     }
 }
@@ -118,16 +113,15 @@ if ($result) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
     <style>
+        /* 補回原本遺失的狀態樣式 */
         .dot-opening-soon { background-color: #f1c40f !important; }
         .dot-closing-soon { background-color: #e67e22 !important; }
         .dot-opening-soon-text { color: #f1c40f; }
         .dot-closing-soon-text { color: #e67e22; }
-        .fav-btn { transition: transform 0.2s ease; }
-        .fav-btn:hover { transform: scale(1.2); }
         .highlight-card { border: 2px solid #8B4513 !important; background-color: #fffaf0 !important; }
-        /* [新增] 評分星星樣式 */
         .rating-stars { color: #f1c40f; margin: 4px 0; font-size: 0.9rem; }
-        .rating-num { color: #666; font-size: 0.8rem; margin-left: 5px; }
+        .cafe-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85rem; color: #555; margin: 8px 0; border-top: 1px solid #eee; padding-top: 8px; }
+        .cafe-meta i { width: 16px; margin-right: 5px; color: #8B4513; }
     </style>
 </head>
 <body>
@@ -161,10 +155,7 @@ if ($result) {
                     <div class="filter-section">
                         <h4>顧客評分</h4>
                         <?php foreach ([4.5, 4.0, 3.5, 0] as $r): ?>
-                            <label>
-                                <input type="radio" name="rating" value="<?= $r ?>" <?= ($selectedRating == $r) ? 'checked' : ''; ?>> 
-                                <?= $r == 0 ? '不限' : $r.'星以上' ?>
-                            </label><br>
+                            <label><input type="radio" name="rating" value="<?= $r ?>" <?= ($selectedRating == $r) ? 'checked' : ''; ?>> <?= $r == 0 ? '不限' : $r.'星以上' ?></label><br>
                         <?php endforeach; ?>
                     </div>
 
@@ -181,29 +172,25 @@ if ($result) {
                     <div class="filter-section">
                         <h4>價格範圍 (低消)</h4>
                         <?php foreach (['1'=>'1-50', '2'=>'51-100', '3'=>'101-150', '4'=>'151-200', '5'=>'201-500'] as $v => $l): ?>
-                            <label>
-                                <input type="checkbox" name="price[]" value="<?= $v ?>" <?= in_array($v, $selectedPriceGroups) ? 'checked' : ''; ?>> 
-                                <?= $l ?>
-                            </label><br>
+                            <label><input type="checkbox" name="price[]" value="<?= $v ?>" <?= in_array($v, $selectedPriceGroups) ? 'checked' : ''; ?>> <?= $l ?></label><br>
                         <?php endforeach; ?>
                     </div>
-                    
                     <button type="submit" class="btn" style="width: 100%; margin-top: 20px;">套用所有篩選</button>
                 </aside>
 
                 <div class="content-wrapper">
                     <div class="search-container">
-                        <input type="text" name="search" id="keywordSearch" placeholder="搜尋店名或地址..." value="<?= $searchTerm ?>" class="search-input">
+                        <input type="text" name="search" placeholder="搜尋店名或地址..." value="<?= $searchTerm ?>" class="search-input">
                         <button type="submit" class="search-btn">🔍 搜尋</button>
                     </div>
 
                     <main class="card-list">
                         <?php if(!empty($cafesArray)): ?>
                             <?php foreach ($cafesArray as $row): ?>
-                                <div class="card cafe-card <?= ($targetCafeId == $row['id']) ? 'highlight-card' : '' ?>" id="cafe-<?= $row['id'] ?>" data-name="<?= htmlspecialchars($row['name']) ?>" data-address="<?= htmlspecialchars($row['address']) ?>">
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                <div class="card cafe-card <?= ($targetCafeId == $row['id']) ? 'highlight-card' : '' ?>" id="cafe-<?= $row['id'] ?>">
+                                    <div style="display: flex; justify-content: space-between;">
                                         <h3 style="margin: 0;"><?= htmlspecialchars($row['name']) ?></h3>
-                                        <button type="button" class="fav-btn" onclick="toggleFav(<?= $row['id'] ?>, this)" style="background:none; border:none; cursor:pointer; font-size: 1.4rem; padding: 0;">
+                                        <button type="button" class="fav-btn" onclick="toggleFav(<?= $row['id'] ?>, this)" style="background:none; border:none; cursor:pointer; font-size: 1.4rem;">
                                             <i class="<?= $row['is_favorite'] ? 'fa-solid' : 'fa-regular' ?> fa-heart" style="color: <?= $row['is_favorite'] ? '#ff4d4d' : '#ccc' ?>;"></i>
                                         </button>
                                     </div>
@@ -212,31 +199,33 @@ if ($result) {
                                         <?php 
                                         $ratingValue = (float)$row['rating'];
                                         for ($i = 1; $i <= 5; $i++) {
-                                            if ($i <= $ratingValue) {
-                                                echo '<i class="fa-solid fa-star"></i>';
-                                            } elseif ($i - 0.5 <= $ratingValue) {
-                                                echo '<i class="fa-solid fa-star-half-stroke"></i>';
-                                            } else {
-                                                echo '<i class="fa-regular fa-star" style="color:#ccc;"></i>';
-                                            }
+                                            if ($i <= $ratingValue) echo '<i class="fa-solid fa-star"></i>';
+                                            elseif ($i - 0.5 <= $ratingValue) echo '<i class="fa-solid fa-star-half-stroke"></i>';
+                                            else echo '<i class="fa-regular fa-star" style="color:#ccc;"></i>';
                                         }
                                         ?>
                                         <span class="rating-num">(<?= number_format($ratingValue, 1) ?>)</span>
+                                    </div>
+
+                                    <div class="cafe-meta">
+                                        <span><i class="fa-solid fa-phone"></i> <?= htmlspecialchars($row['phone'] ?: '無電話') ?></span>
+                                        <span><i class="fa-solid fa-coins"></i> 低消: <?= (int)$row['min_consumption'] > 0 ? $row['min_consumption'].'元' : '無限制' ?></span>
+                                        <span><i class="fa-solid fa-person-walking"></i> 距離: <?= $row['dist_text'] ?></span>
+                                        <span><i class="fa-solid fa-clock"></i> 今日: <?= htmlspecialchars($row['display_hours']) ?></span>
                                     </div>
 
                                     <div class="status-tag">
                                         <span class="dot <?= $row['status_class'] ?>"></span>
                                         <strong class="<?= $row['status_class'] ?>-text"><?= $row['status_text'] ?></strong>
                                     </div>
+
                                     <p>📍 <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $row['latitude'] ?>,<?= $row['longitude'] ?>" target="_blank" class="nav-link"><?= htmlspecialchars($row['address']) ?></a></p>
-                                    <p>🕒 <strong>今日營業時間：</strong><br><?= htmlspecialchars($row['display_hours']) ?></p>
+                                    
                                     <div class="card-footer">
                                         <a href="reviews.php?id=<?= $row['id'] ?>" class="review-btn">💬 查看與留言</a>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
-                        <?php else: ?>
-                            <div class="no-result">沒有找到符合條件的咖啡廳。</div>
                         <?php endif; ?>
                     </main>
                 </div>
@@ -250,32 +239,5 @@ if ($result) {
     </script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="js/map.js"></script>
-    <script>
-    async function toggleFav(cafeId, btn) {
-        const icon = btn.querySelector('i');
-        const isAdding = icon.classList.contains('fa-regular');
-        const action = isAdding ? 'add' : 'remove';
-        try {
-            const response = await fetch('api_favorite.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: action, cafe_id: cafeId })
-            });
-            const data = await response.json();
-            if (data.status === 'success') {
-                if (isAdding) {
-                    icon.classList.replace('fa-regular', 'fa-solid');
-                    icon.style.color = '#ff4d4d';
-                } else {
-                    icon.classList.replace('fa-solid', 'fa-regular');
-                    icon.style.color = '#ccc';
-                }
-            } else {
-                alert(data.message);
-                if (data.message.includes('登入')) window.location.href = '<?= $googleLoginUrl ?>';
-            }
-        } catch (error) { console.error('Error:', error); }
-    }
-    </script>
 </body>
 </html>
