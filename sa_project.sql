@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- 主機： 127.0.0.1
--- 產生時間： 2026-05-10 16:14:53
+-- 產生時間： 2026-05-11 12:35:28
 -- 伺服器版本： 10.4.32-MariaDB
 -- PHP 版本： 8.0.30
 
@@ -384,8 +384,9 @@ INSERT INTO `cafe_reviews` (`id`, `cafe_id`, `user_id`, `user_name`, `comment`, 
 (19, 1, '', 'Wu Shin', '主廚只是個萌萌的小蛋仔，所以即使他做的東西再難吃也請大家不要欺負他，哦對了菜單是主廚頭上的頭套，有什麼就吃什麼', 5, 2, 0, '2026-05-09 17:51:13', 'uploads/reviews/rev_69ff74114e0a8.jpg'),
 (20, 1, '', 'Wu Shin', '主廚只是個萌萌的小蛋仔，所以即使他做的東西再難吃也請大家不要欺負他，哦對了菜單是主廚頭上的頭套，有什麼就吃什麼', 5, 0, 0, '2026-05-09 17:51:13', 'uploads/reviews/rev_69ff74114f498.jpg'),
 (21, 1, '', 'Wu Shin', '主廚只是個萌萌的小蛋仔，所以即使他做的東西再難吃也請大家不要欺負他，哦對了菜單是主廚頭上的頭套，有什麼就吃什麼', 5, 0, 0, '2026-05-09 17:51:13', 'uploads/reviews/rev_69ff7411507cf.jpg'),
-(23, 1, '', 'Wu Shin', '另一個主廚秀色可餐還會拉小提琴', 5, 1, 1, '2026-05-09 18:16:39', 'uploads/reviews/rev_69ff7a07ea800.jpg'),
-(24, 1, '', 'Wu Shin', '為什麼店裡不能用顏值支付', 1, 1, 1, '2026-05-09 18:17:48', NULL);
+(23, 1, '', 'Wu Shin', '另一個主廚秀色可餐還會拉小提琴', 5, 1, 0, '2026-05-09 18:16:39', 'uploads/reviews/rev_69ff7a07ea800.jpg'),
+(24, 1, '', 'Wu Shin', '為什麼店裡不能用顏值支付', 1, 1, 0, '2026-05-09 18:17:48', NULL),
+(25, 1, '', 'Anson Lee', '讚', 5, 0, 0, '2026-05-10 14:38:22', 'uploads/reviews/rev_6a00985ee262c.png');
 
 -- --------------------------------------------------------
 
@@ -730,9 +731,7 @@ INSERT INTO `review_reactions` (`review_id`, `user_id`, `action_type`) VALUES
 (15, '2', 'helpful'),
 (19, '1', 'helpful'),
 (19, '2', 'helpful'),
-(23, '1', 'not_helpful'),
 (23, '2', 'helpful'),
-(24, '1', 'not_helpful'),
 (24, '2', 'helpful');
 
 -- --------------------------------------------------------
@@ -843,7 +842,7 @@ ALTER TABLE `cafe_menus`
 -- 使用資料表自動遞增(AUTO_INCREMENT) `cafe_reviews`
 --
 ALTER TABLE `cafe_reviews`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
 
 --
 -- 使用資料表自動遞增(AUTO_INCREMENT) `cafe_shop`
