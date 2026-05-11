@@ -35,7 +35,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <li class="user-info mobile-user-box">
                     <div class="user-header">
                         <?php if (isset($_SESSION['user_pic'])): ?>
-                            <img src="<?= $_SESSION['user_pic'] ?>" class="user-avatar-app">
+                            <img src="<?= $_SESSION['user_pic'] ?>" class="user-avatar-app" referrerpolicy="no-referrer">
                         <?php endif; ?>
                         <span class="user-name-app">
                             <?= htmlspecialchars($_SESSION['user_name']) ?>

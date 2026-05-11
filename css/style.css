@@ -106,3 +106,124 @@ body { font-family: 'PingFang TC', sans-serif; background: var(--bg-color); marg
 .next { right: 20px; border-radius: 3px 0 0 3px; }
 .prev { left: 20px; }
 .prev:hover, .next:hover { background-color: rgba(0,0,0,0.8); }
+
+/* 當螢幕寬度小於 768px 時觸發 */
+@media (max-width: 768px) {
+    /* 1. 將左右並排改為上下堆疊 */
+    .main-layout {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    /* 2. 讓側邊欄與搜尋欄寬度 100% */
+    .sidebar, .search-container {
+        width: 100% !important;
+        flex: none;
+        box-sizing: border-box;
+    }
+
+    /* 3. 調整地圖高度，適合單手操作 */
+    #map {
+        height: 300px;
+        border-radius: 10px;
+    }
+
+    /* 4. 字卡間距調整 */
+    .card-list {
+        grid-template-columns: 1fr; /* 手機上一列只顯示一張卡片 */
+        gap: 15px;
+    }
+
+    /* 5. 隱藏不必要的電腦版標籤（選用） */
+    .filter-header strong {
+        display: block;
+        margin-bottom: 10px;
+    }
+}
+
+/* =========================================
+   手機版 (RWD) 響應式設計 (螢幕寬度 768px 以下觸發)
+========================================= */
+@media (max-width: 768px) {
+    /* 1. 整體佈局：從左右並排改為上下堆疊 */
+    .main-layout {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    /* 2. 側邊欄與內容區：滿版顯示 */
+    .sidebar, .content-wrapper, .search-container {
+        width: 100% !important;
+        box-sizing: border-box;
+    }
+    
+    .sidebar {
+        padding: 15px;
+    }
+
+    /* 3. 地圖調整：高度縮小，方便單手滑動 */
+    #map {
+        height: 320px !important;
+    }
+
+    /* 4. 地圖圖例：縮小並靠邊，避免遮擋地圖 */
+    .map-legend {
+        font-size: 11px;
+        padding: 6px 8px;
+        top: 10px;
+        right: 10px;
+    }
+
+    /* 5. 咖啡廳字卡：改為單欄滿版顯示 */
+    .card-list {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+
+    /* 6. 標籤篩選區：按鈕自動換行排版 */
+    .tag-container {
+        justify-content: flex-start;
+    }
+    .tag-container label {
+        padding: 6px 12px;
+        font-size: 13px;
+        margin-bottom: 5px;
+    }
+
+    /* 7. 路線規劃頁面 (route_plan.php) 佈局調整 */
+    .route-container {
+        flex-direction: column;
+        height: auto;
+    }
+    #routeMap {
+        height: 350px !important;
+        flex: none;
+    }
+    .route-sidebar {
+        max-height: 400px;
+        flex: none;
+        padding: 15px;
+    }
+
+    /* 8. 收藏頁面 (favorite.php) 佈局調整 */
+    .fav-grid {
+        grid-template-columns: 1fr; /* 單欄 */
+    }
+    .fav-container {
+        margin-top: 20px; /* 縮小頂部留白 */
+    }
+
+    /* 9. 評論頁面 (reviews.php) 照片自適應 */
+    .photo-grid img {
+        width: calc(50% - 12px); /* 兩欄顯示 */
+        height: auto;
+        aspect-ratio: 1/1;
+    }
+    .menu-item img {
+        width: 120px;
+        height: 160px;
+    }
+    .section-box {
+        padding: 15px; /* 縮小內距 */
+    }
+}

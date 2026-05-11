@@ -77,7 +77,9 @@ if (isset($_GET['delete_menu']) && $is_logged_in) {
         if (file_exists($row['menu_image_path'])) unlink($row['menu_image_path']);
         mysqli_query($conn, "DELETE FROM cafe_menus WHERE id = $m_id");
     }
-    header("Location: reviews.php?id=$cafe_id&sort=$sort"); exit;
+    $anchor = isset($r_id) ? "#review-" . $r_id : "";
+    header("Location: reviews.php?id=$cafe_id&sort=$sort" . $anchor); 
+    exit;
 }
 
 // --- 5. 處理「上傳」邏輯 ---
@@ -133,6 +135,7 @@ $reviews_res = mysqli_query($conn, $review_sql);
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($cafe_info['name']) ?> - 咖啡廳資訊</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
@@ -181,7 +184,7 @@ $reviews_res = mysqli_query($conn, $review_sql);
 
         <div class="section-box">
             <h3 class="tab-title">
-                <span>💬 大眾意見</span>
+                <span>大眾意見</span>
                 <div>
                     <?php if($avg_score > 0): ?><span class="avg-badge">★ <?= $avg_score ?> (<?= $avg_data['total_count'] ?> 則)</span><?php endif; ?>
                     <select onchange="location.href='reviews.php?id=<?= $cafe_id ?>&sort=' + this.value;" style="font-size:14px; margin-left:10px; padding:5px; border-radius:5px; border:1px solid #ddd;">
@@ -207,16 +210,38 @@ $reviews_res = mysqli_query($conn, $review_sql);
                     if ($v_row = mysqli_fetch_assoc($v_res)) $user_vote = $v_row['action_type'];
                 }
             ?>
-                <div class="review-card">
+                <div class="review-card" id="review-<?= $r_id ?>">
                     <div style="display:flex; justify-content:space-between; color:#888; font-size:0.85em;"><strong><?= htmlspecialchars($rev['user_name']) ?></strong><span><?= date('Y-m-d H:i', strtotime($group_ts)) ?></span></div>
                     <div class="display-stars"><?= str_repeat('★', $rev['rating']) . str_repeat('☆', 5 - $rev['rating']) ?></div>
                     <p><?= nl2br(htmlspecialchars($rev['comment'])) ?></p>
                     <div class="photo-grid"><?php if($rev['all_images']) foreach(explode(',', $rev['all_images']) as $img) echo '<img src="'.$img.'" class="enlarge-img">'; ?></div>
-                    <div style="margin-top:10px; display: flex; align-items: center;">
-                        <a href="?id=<?= $cafe_id ?>&group_ts=<?= urlencode($group_ts) ?>&action=helpful&sort=<?= $sort ?>" style="text-decoration:none; color:<?= $user_vote === 'helpful' ? '#8d6e63' : '#888' ?>;">👍 有幫助 (<?= $rev['h_count'] ?>)</a>
-                        <a href="?id=<?= $cafe_id ?>&group_ts=<?= urlencode($group_ts) ?>&action=not_helpful&sort=<?= $sort ?>" style="text-decoration:none; color:<?= $user_vote === 'not_helpful' ? '#8d6e63' : '#888' ?>; margin-left: 15px;">👎 沒幫助 (<?= $rev['nh_count'] ?>)</a>
-                        <?php if ($is_logged_in && $rev['user_name'] === $google_user_name): ?><a href="?id=<?= $cafe_id ?>&delete_group=1&ts=<?= urlencode($group_ts) ?>&sort=<?= $sort ?>" style="color:red; text-decoration:none; margin-left:auto;" onclick="return confirm('刪除整則評論？')">刪除</a><?php endif; ?>
-                    </div>
+                    <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px;">
+    <a href="javascript:void(0);" 
+       class="action-link <?= ($user_vote === 'helpful') ? 'active' : '' ?>" 
+       id="btn-helpful-<?= $r_id ?>"
+       onclick="toggleReaction(<?= $r_id ?>, 'helpful')">
+        👍 有幫助 (<span id="count-helpful-<?= $r_id ?>"><?= $rev['h_count'] ?></span>)
+    </a>
+
+    <a href="javascript:void(0);" 
+       class="action-link <?= ($user_vote === 'not_helpful') ? 'active' : '' ?>" 
+       id="btn-not_helpful-<?= $r_id ?>"
+       onclick="toggleReaction(<?= $r_id ?>, 'not_helpful')">
+        👎 沒幫助 (<span id="count-not_helpful-<?= $r_id ?>"><?= $rev['nh_count'] ?></span>)
+    </a>
+
+    <?php if ($is_logged_in && $rev['user_name'] === $google_user_name): ?>
+        <a href="?id=<?= $cafe_id ?>&delete_group=1&ts=<?= urlencode($group_ts) ?>&sort=<?= $sort ?>" style="color:red; text-decoration:none; margin-left:auto;" onclick="return confirm('刪除整則評論？')">刪除</a>
+    <?php endif; ?>
+</div>
+
+    <?php if ($is_logged_in && $rev['user_name'] === $google_user_name): ?>
+        <a href="?id=<?= $cafe_id ?>&delete_group=1&ts=<?= urlencode($group_ts) ?>&sort=<?= $sort ?>" 
+           style="color: #e74c3c; text-decoration: none; font-size: 0.9em; margin-left: auto;" 
+           onclick="return confirm('確定要刪除這則評論嗎？')">
+        </a>
+    <?php endif; ?>
+</div>
                 </div>
             <?php endwhile; ?>
         </div>
@@ -243,6 +268,45 @@ $reviews_res = mysqli_query($conn, $review_sql);
         document.onkeydown = (e) => { if (modal.style.display === "block") { if (e.key === "ArrowLeft") slide(-1); if (e.key === "ArrowRight") slide(1); if (e.key === "Escape") closeModal(); } };
         initLightbox();
     });
+
+    // 處理按讚/沒幫助的非同步請求
+    async function toggleReaction(reviewId, action) {
+        try {
+            const response = await fetch('api_reaction.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ review_id: reviewId, action: action })
+            });
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                // 1. 即時更新畫面上的數字
+                document.getElementById('count-helpful-' + reviewId).innerText = data.helpful_count;
+                document.getElementById('count-not_helpful-' + reviewId).innerText = data.not_helpful_count;
+                
+                // 2. 清除兩個按鈕的實色狀態
+                const btnHelpful = document.getElementById('btn-helpful-' + reviewId);
+                const btnNotHelpful = document.getElementById('btn-not_helpful-' + reviewId);
+                btnHelpful.classList.remove('active');
+                btnNotHelpful.classList.remove('active');
+                
+                // 3. 根據背景傳回的真實狀態，幫按鈕塗上實色
+                if (data.user_vote === 'helpful') {
+                    btnHelpful.classList.add('active');
+                } else if (data.user_vote === 'not_helpful') {
+                    btnNotHelpful.classList.add('active');
+                }
+            } else {
+                alert(data.message);
+                if (data.message.includes('登入')) {
+                    // 若未登入，導向 Google 登入
+                    window.location.href = '<?= $googleLoginUrl ?>';
+                }
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
     </script>
 </body>
 </html>
