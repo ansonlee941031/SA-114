@@ -219,9 +219,7 @@ if ($result) {
                                         <strong class="<?= $row['status_class'] ?>-text"><?= $row['status_text'] ?></strong>
                                     </div>
 
-                                    <p>📍 <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $row['latitude'] ?>,<?= $row['longitude'] ?>" target="_blank" class="nav-link"><?= htmlspecialchars($row['address']) ?></a></p>
-                                    
-                                    <div class="card-footer">
+<p>📍 <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $row['latitude'] ?>,<?= $row['longitude'] ?>" target="_blank" class="nav-link"><?= htmlspecialchars($row['address']) ?></a></p>                                    <div class="card-footer">
                                         <a href="reviews.php?id=<?= $row['id'] ?>" class="review-btn">💬 查看與留言</a>
                                     </div>
                                 </div>
