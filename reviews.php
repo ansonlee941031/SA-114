@@ -176,8 +176,16 @@ $reviews_res = mysqli_query($conn, $review_sql);
         .photo-grid img { width: 140px; height: 140px; object-fit: cover; border-radius: 10px; margin: 4px; cursor: zoom-in; }
 
         .form-area { background: #fffcf5; padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #faead5; }
-        textarea { font-size: 1.05rem; padding: 12px; border-radius: 10px; border: 1px solid #ddd; width: 100%; resize: none; }
-        
+/* 修改後：加入 box-sizing: border-box */
+textarea { 
+    font-size: 1.05rem; 
+    padding: 12px; 
+    border-radius: 10px; 
+    border: 1px solid #ddd; 
+    width: 100%; 
+    resize: none; 
+    box-sizing: border-box; /* 👈 這是解決超出去的關鍵 */
+}        
         .btn-custom { background: var(--primary-brown); color: white; border: none; padding: 10px 22px; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .btn-custom:hover { opacity: 0.9; }
 
@@ -258,6 +266,8 @@ $reviews_res = mysqli_query($conn, $review_sql);
                         <textarea name="comment" rows="4" placeholder="分享您在這間咖啡廳的體驗..." required></textarea>
                         <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
                             <input type="file" name="review_images[]" multiple style="font-size: 0.85rem;">
+                                                    </div>
+                                                    <div>
                             <button type="submit" name="submit_review" class="btn-custom">發佈評論</button>
                         </div>
                     </form>

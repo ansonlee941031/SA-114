@@ -143,7 +143,7 @@ if ($result) {
                 <div class="tag-container">
                     <strong style="margin-right: 10px;">快速篩選</strong>
                     <?php 
-                    $tags = ['socket'=>'插座', 'no_limit'=>'不限時', 'parking'=>'停車位', 'wifi'=>'WiFi', 'outdoor'=>'戶外座位', 'seats'=>'室內座位', 'dessert'=>'甜點', 'toilet'=>'廁所', 'no_min_consume'=>'低消限制'];
+                    $tags = ['socket'=>'插座', 'no_limit'=>'不限時', 'parking'=>'停車位', 'wifi'=>'WiFi', 'outdoor'=>'戶外座位', 'seats'=>'室內座位', 'dessert'=>'甜點', 'toilet'=>'廁所', 'no_min_consume'=>'無低消'];
                     foreach($tags as $key => $lbl): ?>
                         <label><input type="checkbox" name="<?= $key ?>" value="1" <?= isset($_GET[$key]) ? 'checked' : ''; ?>> <?= $lbl ?></label>
                     <?php endforeach; ?>

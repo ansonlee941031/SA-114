@@ -227,3 +227,27 @@ body { font-family: 'PingFang TC', sans-serif; background: var(--bg-color); marg
         padding: 15px; /* 縮小內距 */
     }
 }
+
+/* 針對手機版的微調 (螢幕寬度 768px 以下) */
+@media (max-width: 768px) {
+    .page-container {
+        padding: 0 15px; /* 稍微減少左右留白，給內容更多空間 */
+    }
+    
+    .section-box {
+        padding: 15px; /* 縮小卡片的內距 */
+    }
+
+    /* 確保上傳檔案與發布按鈕不會擠在一起 */
+    .form-area > div:last-child,
+    .form-area > div:nth-last-child(2) {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .btn-custom {
+        width: 100%; /* 在手機版讓按鈕滿版，更好點擊 */
+        padding: 12px;
+    }
+}

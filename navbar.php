@@ -6,6 +6,12 @@ include_once __DIR__ . '/config/google_config.php';
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
+<header class="app-top-bar">
+    <div class="top-bar-title">
+        ☕ 輔大咖啡廳地圖
+    </div>
+</header>
+
 <nav class="main-nav mobile-app-nav">
     <div class="nav-container">
         <ul class="nav-menu">
@@ -60,7 +66,33 @@ $current_page = basename($_SERVER['PHP_SELF']);
 </nav>
 
 <style>
-/* 底部導覽列基礎設定 */
+/* =========================================
+   頂部標題列樣式 (Top Bar)
+========================================= */
+.app-top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: #3c1200; /* 與底部導覽列同色系 */
+    height: 55px;
+    display: flex;
+    align-items: center;
+    justify-content: center; /* 讓標題置中 */
+    z-index: 9999;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.top-bar-title {
+    color: #ffcc00; /* 呼應底部圖示的暖黃色 */
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 2px;
+}
+
+/* =========================================
+   底部導覽列基礎設定
+========================================= */
 .mobile-app-nav {
     position: fixed;
     bottom: 0;
@@ -167,16 +199,15 @@ $current_page = basename($_SERVER['PHP_SELF']);
     border-color: #e74c3c transparent transparent transparent;
 }
 
-/* 關鍵修改：將登出按鈕設為橫向排列 (row) */
 .btn-logout-animated {
     color: white !important;
     text-decoration: none;
     font-size: 14px;
     font-weight: bold;
     display: flex;
-    flex-direction: row; /* 👈 強制橫向並排 */
+    flex-direction: row; 
     align-items: center;
-    gap: 8px; /* 圖示與文字的間距 */
+    gap: 8px; 
     white-space: nowrap;
 }
 
@@ -192,7 +223,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
     font-weight: bold;
 }
 
-body { padding-bottom: 90px; }
+/* 🌟 關鍵修改：讓 body 上下都留白，避免內容被頂部/底部列遮擋 */
+body { 
+    padding-top: 65px;  /* 讓出空間給頂端標題列 */
+    padding-bottom: 90px; /* 讓出空間給底部導覽列 */
+}
 </style>
 
 <script>
