@@ -212,6 +212,23 @@ textarea {
         .prev, .next { cursor: pointer; position: absolute; top: 50%; color: white; font-size: 50px; padding: 20px; z-index: 10000; text-decoration: none; user-select: none; }
         .next { right: 30px; } .prev { left: 30px; }
         .close-modal { position: absolute; top: 25px; right: 35px; color: white; font-size: 40px; cursor: pointer; z-index: 10001; }
+    
+        /* --- 統一「選擇檔案」按鈕樣式 --- */
+input[type="file"]::file-selector-button {
+    background-color: #f0f0f0; /* 淺灰色背景 */
+    color: #666;               /* 深灰色文字 */
+    border: 1px solid #ddd;    /* 淡淡的邊框 */
+    padding: 8px 16px;
+    border-radius: 8px;        /* 圓角，與發佈按鈕統一 */
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s ease;
+    margin-right: 10px;        /* 與旁邊的文字拉開一點距離 */
+}
+
+input[type="file"]::file-selector-button:hover {
+    background-color: #e4e4e4; /* 滑鼠移過去時變深一點的灰色 */
+}
     </style>
 </head>
 <body>
