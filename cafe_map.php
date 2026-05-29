@@ -175,13 +175,11 @@ if ($result) {
                             <label><input type="checkbox" name="price[]" value="<?= $v ?>" <?= in_array($v, $selectedPriceGroups) ? 'checked' : ''; ?>> <?= $l ?></label><br>
                         <?php endforeach; ?>
                     </div>
-                    <button type="submit" class="btn" style="width: 100%; margin-top: 20px;">套用所有篩選</button>
                 </aside>
 
                 <div class="content-wrapper">
                     <div class="search-container">
                         <input type="text" name="search" placeholder="搜尋店名或地址..." value="<?= $searchTerm ?>" class="search-input">
-                        <button type="submit" class="search-btn">🔍 搜尋</button>
                     </div>
 
                     <main class="card-list">
@@ -239,5 +237,76 @@ if ($result) {
     
     <!-- 🟢 核心修正：加上隨機時間戳記防快取，強迫載入最新的彩色 JS 設定 -->
     <script src="js/map.js?v=<?= time() ?>"></script>
+<script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const filterForm = document.getElementById('filterForm');
+            
+            // 隱藏傳統的按鈕
+            const submitBtns = filterForm.querySelectorAll('button[type="submit"]');
+            submitBtns.forEach(btn => btn.style.display = 'none');
+
+            // 核心：無痛更新畫面的函數
+            function fetchAndUpdate() {
+                const formData = new FormData(filterForm);
+                const params = new URLSearchParams(formData);
+                const url = 'cafe_map.php?' + params.toString();
+
+                // 使用 fetch 在背景悄悄抓取新資料
+                fetch(url)
+                    .then(response => response.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+
+                        // 1. 替換店家卡片清單 (畫面不會跳轉，捲軸不會跑)
+                        const newCardList = doc.querySelector('.card-list');
+                        if(newCardList) {
+                            document.querySelector('.card-list').innerHTML = newCardList.innerHTML;
+                        }
+
+                        // 2. 擷取最新的地圖 JSON 資料
+                        const scripts = doc.querySelectorAll('script');
+                        let newMapData = null;
+                        scripts.forEach(script => {
+                            if (script.textContent.includes('window.cafeData')) {
+                                const match = script.textContent.match(/window\.cafeData\s*=\s*(\[.*?\]);/s);
+                                if (match && match[1]) {
+                                    newMapData = JSON.parse(match[1]);
+                                }
+                            }
+                        });
+
+                        // 3. 呼叫 map.js 裡的新函數來重繪地圖標記
+                        if (newMapData && typeof window.updateMapMarkers === 'function') {
+                            window.updateMapMarkers(newMapData);
+                        }
+
+                        // 4. 更新網址列 (讓上一頁/下一頁功能正常)
+                        window.history.pushState({}, '', url);
+                    })
+                    .catch(err => console.error('更新失敗:', err));
+            }
+
+            // 監聽所有 Checkbox 和 Radio 的點擊，一按就更新
+            const inputs = filterForm.querySelectorAll('input[type="checkbox"], input[type="radio"]');
+            inputs.forEach(input => {
+                input.addEventListener('change', fetchAndUpdate);
+            });
+            
+            // 監聽搜尋框：使用者停止打字 0.5 秒後，自動發動搜尋 (超實用 UX)
+            const searchInput = filterForm.querySelector('input[name="search"]');
+            if(searchInput) {
+                let timeout = null;
+                searchInput.addEventListener('input', () => {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(fetchAndUpdate, 500);
+                });
+                // 停用 Enter 鍵的預設跳轉行為
+                searchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') e.preventDefault();
+                });
+            }
+        });
+    </script>
 </body>
 </html>
