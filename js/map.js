@@ -3,8 +3,11 @@
 document.addEventListener("DOMContentLoaded", function() {
     // 初始化地圖
     var map = L.map('map', { scrollWheelZoom: true }).setView([25.035, 121.445], 15);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO'
+    
+    // 🟢 已經更換為：OpenStreetMap 標準彩色底圖 (路網鮮明、公園呈綠色、河流呈藍色)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
     var cafes = window.cafeData || [];
@@ -106,7 +109,7 @@ window.scrollToCafe = function(id) {
     }
 };
 
-// ... toggleFav 函式保持不變 ...
+// 收藏功能明細 (修正先前被省略的部分)
 async function toggleFav(cafeId, btn) {
     const icon = btn.querySelector('i');
     const isAdding = icon.classList.contains('fa-regular'); // 判斷目前是空心還是實心
