@@ -1,183 +1,152 @@
 <?php
+if (session_status() === PHP_SESSION_NONE) { session_start(); }
 require_once __DIR__ . '/config/db.php';
+require_once __DIR__ . '/src/CafeQueryBuilder.php';
+include_once __DIR__ . '/config/google_config.php';
 
-// --- [功能完整保留] 接收所有篩選參數 ---
-$hasSocket = isset($_GET['socket']) ? 1 : 0;
-$hasNoLimit = isset($_GET['no_limit']) ? 1 : 0;
-$hasParking = isset($_GET['parking']) ? 1 : 0;
-$hasWiFi    = isset($_GET['wifi']) ? 1 : 0;
-$hasOutdoor = isset($_GET['outdoor']) ? 1 : 0;
-$hasDessert = isset($_GET['dessert']) ? 1 : 0;
-$hasToilet  = isset($_GET['toilet']) ? 1 : 0;
-$noMinConsume = isset($_GET['no_min_consume']) ? 1 : 0;
-$hasSeat    = isset($_GET['seats']) ? 1 : 0;
-
+// 接收所有篩選參數以維持 UI 狀態
+$searchTerm   = htmlspecialchars($_GET['search'] ?? '');
 $selectedRating = isset($_GET['rating']) ? (float)$_GET['rating'] : 0;
-$selectedPriceGroups = isset($_GET['price']) ? $_GET['price'] : [];
 $selectedDistance = isset($_GET['distance']) ? (float)$_GET['distance'] : 0;
+$selectedPriceGroups = isset($_GET['price']) ? (is_array($_GET['price']) ? $_GET['price'] : [$_GET['price']]) : [];
 
-// --- [功能完整保留] SQL 查詢邏輯 ---
-$sql = "SELECT cafe_shop.* FROM cafe_shop INNER JOIN label ON cafe_shop.id = label.cafe_id WHERE 1 = 1";
-$params = [];
-$types = "";
+// 接收從 route_plan.php 傳來的店家 ID
+$targetCafeId = isset($_GET['id']) ? (int)$_GET['id'] : null;
 
-if ($hasSocket) { $sql .= " AND label.`插座` = ?"; $params[] = 1; $types .= "i"; }
-if ($hasNoLimit) { $sql .= " AND label.`不限時` = ?"; $params[] = 1; $types .= "i"; }
-if ($hasParking) { $sql .= " AND label.`停車位` = ?"; $params[] = 1; $types .= "i"; }
-if ($hasWiFi) { $sql .= " AND label.`wifi` = ?"; $params[] = 1; $types .= "i"; }
-if ($hasOutdoor) { $sql .= " AND label.`戶外座位` = ?"; $params[] = 1; $types .= "i"; }
-if ($hasDessert) { $sql .= " AND label.`甜點` = ?"; $params[] = 1; $types .= "i"; }
-if ($hasToilet) { $sql .= " AND label.`廁所` = ?"; $params[] = 1; $types .= "i"; }
-if ($noMinConsume) { $sql .= " AND cafe_shop.`min_consumption` = ?"; $params[] = 0; $types .= "i"; }
-if ($hasSeat) { $sql .= " AND label.`室內座位` = ?"; $params[] = 1; $types .= "i"; }
-
-if ($selectedRating > 0) { $sql .= " AND cafe_shop.`rating` >= ?"; $params[] = $selectedRating; $types .= "d"; }
-if (!empty($selectedPriceGroups)) {
-    $priceClauses = [];
-    foreach ($selectedPriceGroups as $group) {
-        if ($group == "1") $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 1 AND 50";
-        if ($group == "2") $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 51 AND 100";
-        if ($group == "3") $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 101 AND 150";
-        if ($group == "4") $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 151 AND 200";
-        if ($group == "5") $priceClauses[] = "cafe_shop.`min_consumption` BETWEEN 201 AND 500";
-    }
-    if (!empty($priceClauses)) { $sql .= " AND (" . implode(" OR ", $priceClauses) . ")"; }
-}
-if ($selectedDistance > 0) { $sql .= " AND cafe_shop.`distance_meters` <= ?"; $params[] = $selectedDistance * 1000; $types .= "i"; }
-
-$sql .= " ORDER BY cafe_shop.id ASC";
-$stmt = mysqli_prepare($conn, $sql);
+// 執行 SQL 查詢
+$queryData = \App\CafeQueryBuilder::build($_GET);
+$stmt = mysqli_prepare($conn, $queryData['sql']);
 if ($stmt) {
-    if (!empty($params)) { mysqli_stmt_bind_param($stmt, $types, ...$params); }
+    if (!empty($queryData['params'])) { mysqli_stmt_bind_param($stmt, $queryData['types'], ...$queryData['params']); }
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
 }
 
-$cafesArray = [];
-$mapData = [];
+$cafesArray = []; $mapData = [];
+date_default_timezone_set('Asia/Taipei');
+$current_day = date('N'); $now_min = (int)date('H') * 60 + (int)date('i');
+
 if ($result) {
     while ($row = mysqli_fetch_assoc($result)) {
+        $cafe_id = $row['id'];
+        $cafeName = $row['name'];
+        $lat = (float)$row['latitude'];
+        $lng = (float)$row['longitude'];
+
+        // --- [保留原有] 座標校正邏輯 ---
+        if (strpos($cafeName, '左轉靠右') !== false) { $lat = 25.03221100; $lng = 121.44773300; }
+        elseif (strpos($cafeName, '漂夢島') !== false) { $lat = 25.06321100; $lng = 121.45552200; }
+        elseif (strpos($cafeName, "D'or caf'e") !== false || strpos($cafeName, '兜咖啡') !== false) { $lat = 25.06151100; $lng = 121.45992200; }
+        elseif (strpos($cafeName, 'May i COFFEE you') !== false || strpos($cafeName, '美艾咖啡友') !== false) { $lat = 25.05892100; $lng = 121.44723400; }
+        elseif (strpos($cafeName, 'm&y cafe') !== false) { $lat = 25.05553300; $lng = 121.46112200; }
+        elseif (strpos($cafeName, '朝暮豆行') !== false) { $lat = 25.05112200; $lng = 121.45223300; }
+        elseif (strpos($cafeName, '山林咖啡') !== false) { $lat = 25.02113300; $lng = 121.42554400; }
+        elseif (strpos($cafeName, '林椐咖啡') !== false) { $lat = 25.02556600; $lng = 121.41957700; }
+        
+        if (strpos($cafeName, '迴龍站') !== false) { $lat = 25.02190; $lng = 121.41130; }
+        elseif (strpos($cafeName, '新莊站') !== false) { $lat = 25.03472; $lng = 121.45583; }
+
+        $row['latitude'] = $lat;
+        $row['longitude'] = $lng;
+
+        // 距離格式化
+        $dist = $row['distance_meters'] ?? 0;
+        $row['dist_text'] = ($dist >= 1000) ? number_format($dist / 1000, 1) . ' km' : $dist . ' m';
+
+        // 檢查收藏狀態
+        $is_favorite = false;
+        if (isset($_SESSION['user_id'])) {
+            $fav_sql = "SELECT 1 FROM favorite WHERE user_id = ? AND cafe_id = ?";
+            $fav_stmt = mysqli_prepare($conn, $fav_sql);
+            mysqli_stmt_bind_param($fav_stmt, "si", $_SESSION['user_id'], $cafe_id);
+            mysqli_stmt_execute($fav_stmt);
+            $fav_res = mysqli_stmt_get_result($fav_stmt);
+            $is_favorite = mysqli_num_rows($fav_res) > 0;
+        }
+        $row['is_favorite'] = $is_favorite;
+
+        // 營業時間處理
+        $hour_res = mysqli_query($conn, "SELECT open_time, close_time, is_closed FROM cafe_hours WHERE cafe_id = $cafe_id AND day_of_week = $current_day");
+        $statusClass = 'dot-closed'; $statusText = '○ 已打烊'; $isOpen = false; 
+        $active_open = null; $active_close = null; $is_closed_today = 1; $current_priority = 0; $today_parts = [];
+
+        while ($h = mysqli_fetch_assoc($hour_res)) {
+            if ($h['is_closed']) { $statusText = '○ 今日公休'; $today_parts = ["今日公休"]; $current_priority = -1; break; }
+            $is_closed_today = 0;
+            $o_t = $h['open_time']; $c_t = $h['close_time'];
+            $o_m = (int)date('H', strtotime($o_t)) * 60 + (int)date('i', strtotime($o_t));
+            $c_m = (int)date('H', strtotime($c_t)) * 60 + (int)date('i', strtotime($c_t));
+            $today_parts[] = date('H:i', strtotime($o_t)) . "-" . date('H:i', strtotime($c_t));
+
+            if ($now_min >= $o_m && $now_min < $c_m) {
+                $isOpen = true;
+                if ($current_priority <= 2) {
+                    $statusClass = 'dot-open'; $statusText = '● 營業中'; $current_priority = 2;
+                    $active_open = $o_t; $active_close = $c_t;
+                    if (($c_m - $now_min) <= 30) { $statusClass = 'dot-closing-soon'; $statusText = '● 即將打烊'; }
+                }
+            } else if ($now_min < $o_m && ($o_m - $now_min) <= 30) {
+                if ($current_priority < 1) { $statusClass = 'dot-opening-soon'; $statusText = '○ 即將開店'; $current_priority = 1; $active_open = $o_t; $active_close = $c_t; }
+            }
+        }
+        $formatted_hours = implode(", ", $today_parts);
+        $row['status_class'] = $statusClass; 
+        $row['status_text'] = $statusText; 
+        $row['display_hours'] = $formatted_hours;
+        
         $cafesArray[] = $row;
-        $mapData[] = [
-            'id' => $row['id'], 
-            'name' => $row['name'], 
-            'lat' => (float)($row['latitude'] ?? 25.035), 
-            'lng' => (float)($row['longitude'] ?? 121.445), 
-            'address' => $row['address'],
-            'rating' => (float)($row['rating'] ?? 0),
-            'opening_hours' => $row['opening_hours'] // [新增] 傳入地圖資料
+        $mapData[] = [ 
+            'id' => $row['id'], 'name' => $row['name'], 'lat' => $lat, 'lng' => $lng, 
+            'address' => $row['address'], 'today_hours' => $formatted_hours, 'isOpen' => $isOpen,
+            'open_time' => $active_open, 'close_time' => $active_close, 'is_closed' => $is_closed_today 
         ];
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>新莊咖啡地圖</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <title>新莊咖啡地圖 - SA-114</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
     <style>
-        :root { --primary-color: #8d6e63; --bg-color: #fcfaf7; }
-        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: var(--bg-color); margin: 0; color: #444; }
-        .container { width: 95%; max-width: 1200px; margin: 20px auto; }
-        
-        #map { width: 100%; height: 420px; border-radius: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); margin-bottom: 25px; border: 4px solid #fff; z-index: 1; }
-        .filter-header { background: #fff; padding: 20px; border-radius: 15px; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .tag-container { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-        .tag-container label { background: #f5f5f5; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-size: 14px; transition: 0.2s; border: 1px solid transparent; }
-        .tag-container label:hover { background: #ececec; }
-        .tag-container input[type="checkbox"] { margin-right: 5px; }
-        .btn { background: var(--primary-color); color: white; border: none; padding: 10px 22px; border-radius: 25px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .btn:hover { background: #6d4c41; transform: translateY(-2px); }
-        .main-layout { display: flex; gap: 25px; align-items: flex-start; }
-        .sidebar { width: 260px; flex-shrink: 0; background: #fff; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        .filter-section { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
-        .filter-section h4 { margin-bottom: 10px; color: var(--primary-color); }
-        .card-list { flex-grow: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-        .card { background: #fff; border-radius: 15px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: 0.3s; position: relative; }
-        .card:hover { transform: translateY(-5px); box-shadow: 0 6px 15px rgba(0,0,0,0.1); }
-        .card h3 { margin: 0 0 10px 0; font-size: 1.2em; color: #333; }
-        .card .rating { color: #f39c12; font-weight: bold; margin-bottom: 8px; }
-        .card p { margin: 5px 0; font-size: 0.9em; color: #666; }
-        .highlight-card { border: 2px solid var(--primary-color); background: #fffef0; }
-
-        .marker-pin {
-            width: 30px;
-            height: 30px;
-            border-radius: 50% 50% 50% 0;
-            background: #8d6e63;
-            position: absolute;
-            transform: rotate(-45deg);
-            left: 50%;
-            top: 50%;
-            margin: -15px 0 0 -15px;
-            border: 2px solid #fff;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-        .marker-pin::after {
-            content: '';
-            width: 14px;
-            height: 14px;
-            margin: 8px 0 0 8px;
-            background: #fff;
-            position: absolute;
-            border-radius: 50%;
-        }
-        .pin-gold { background: #f1c40f; }
-        .pin-red { background: #e74c3c; }
-        .pin-brown { background: #8d6e63; }
-
-        /* 地圖圖例樣式 */
-.map-legend {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background: rgba(255, 255, 255, 0.9);
-    padding: 10px;
-    border-radius: 10px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    z-index: 1000;
-    font-size: 13px;
-    border: 1px solid #ddd;
-}
-.legend-item { display: flex; align-items: center; margin-bottom: 5px; }
-.dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; border: 1px solid #fff; }
-.dot-red { background: #e74c3c; }   /* 對應 pin-red */
-.dot-gold { background: #f1c40f; }  /* 對應 pin-gold */
-.dot-brown { background: #8d6e63; } /* 對應 pin-brown */
-
+        /* 補回原本遺失的狀態樣式 */
+        .dot-opening-soon { background-color: #f1c40f !important; }
+        .dot-closing-soon { background-color: #e67e22 !important; }
+        .dot-opening-soon-text { color: #f1c40f; }
+        .dot-closing-soon-text { color: #e67e22; }
+        .highlight-card { border: 2px solid #8B4513 !important; background-color: #fffaf0 !important; }
+        .rating-stars { color: #f1c40f; margin: 4px 0; font-size: 0.9rem; }
+        .cafe-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85rem; color: #555; margin: 8px 0; border-top: 1px solid #eee; padding-top: 8px; }
+        .cafe-meta i { width: 16px; margin-right: 5px; color: #8B4513; }
     </style>
 </head>
 <body>
+    <?php include 'navbar.php'; ?>
     <div class="container">
-        <h1 style="text-align: center; color: var(--primary-color); margin-bottom: 25px;">☕ 新莊咖啡廳搜尋地圖</h1>
-        
-        <div style="position: relative;"> <div id="map"></div>
-    <div class="map-legend">
-        <strong>⭐ 評分等級</strong>
-        <hr style="margin: 5px 0; border: 0; border-top: 1px solid #eee;">
-        <div class="legend-item"><span class="dot dot-red"></span> 4.5 以上 (極高評價)</div>
-        <div class="legend-item"><span class="dot dot-gold"></span> 4.0 - 4.4 (優質推薦)</div>
-        <div class="legend-item"><span class="dot dot-brown"></span> 4.0 以下 / 新開幕</div>
-    </div>
-</div>
+        <div style="position: relative;">
+            <div id="map"></div>
+            <div class="map-legend">
+                <strong>🕒 營業狀態</strong>
+                <div class="legend-item"><span class="dot dot-open"></span> 營業中</div>
+                <div class="legend-item"><span class="dot dot-closed"></span> 已打烊</div>
+                <div class="legend-item"><span class="dot dot-opening-soon"></span> 即將開店</div>
+                <div class="legend-item"><span class="dot dot-closing-soon"></span> 即將打烊</div>
+            </div>
+        </div>
 
-        <form method="GET">
+        <form method="GET" id="filterForm">
             <div class="filter-header">
                 <div class="tag-container">
-                    <strong style="margin-right: 10px;">快速篩選：</strong>
-                    <label><input type="checkbox" name="socket" value="1" <?= $hasSocket ? 'checked' : ''; ?>>插座</label>
-                    <label><input type="checkbox" name="no_limit" value="1" <?= $hasNoLimit ? 'checked' : ''; ?>>不限時</label>
-                    <label><input type="checkbox" name="parking" value="1" <?= $hasParking ? 'checked' : ''; ?>>停車位</label>
-                    <label><input type="checkbox" name="wifi" value="1" <?= $hasWiFi ? 'checked' : ''; ?>>WiFi</label>
-                    <label><input type="checkbox" name="outdoor" value="1" <?= $hasOutdoor ? 'checked' : ''; ?>>戶外座位</label>
-                    <label><input type="checkbox" name="seats" value="1" <?= $hasSeat ? 'checked' : ''; ?>>室內座位</label>
-                    <label><input type="checkbox" name="dessert" value="1" <?= $hasDessert ? 'checked' : ''; ?>>甜點</label>
-                    <label><input type="checkbox" name="toilet" value="1" <?= $hasToilet ? 'checked' : ''; ?>>廁所</label>
-                    <label><input type="checkbox" name="no_min_consume" value="1" <?= $noMinConsume ? 'checked' : ''; ?>>低消限制</label>
-                    <button type="submit" class="btn" style="margin-left: auto;">執行篩選</button>
+                    <strong style="margin-right: 10px;">快速篩選</strong>
+                    <?php 
+                    $tags = ['socket'=>'插座', 'no_limit'=>'不限時', 'parking'=>'停車位', 'wifi'=>'WiFi', 'seats'=>'室內座位', 'dessert'=>'甜點', 'toilet'=>'廁所', 'no_min_consume'=>'無低消'];
+                    foreach($tags as $key => $lbl): ?>
+                        <label><input type="checkbox" name="<?= $key ?>" value="1" <?= isset($_GET[$key]) ? 'checked' : ''; ?>> <?= $lbl ?></label>
+                    <?php endforeach; ?>
                 </div>
             </div>
 
@@ -185,117 +154,90 @@ if ($result) {
                 <aside class="sidebar">
                     <div class="filter-section">
                         <h4>顧客評分</h4>
-                        <label><input type="radio" name="rating" value="3.5" <?= ($selectedRating == 3.5) ? 'checked' : ''; ?>> 3.5星以上</label><br>
-                        <label><input type="radio" name="rating" value="4.0" <?= ($selectedRating == 4.0) ? 'checked' : ''; ?>> 4.0星以上</label><br>
-                        <label><input type="radio" name="rating" value="4.5" <?= ($selectedRating == 4.5) ? 'checked' : ''; ?>> 4.5星以上</label><br>
-                        <label><input type="radio" name="rating" value="0" <?= ($selectedRating == 0) ? 'checked' : ''; ?>> 不限</label>
-                    </div>
-
-                    <div class="filter-section">
-                        <h4>價格範圍 (低消)</h4>
-                        <label><input type="checkbox" name="price[]" value="1" <?= in_array("1", $selectedPriceGroups) ? 'checked' : ''; ?>> 1-50</label><br>
-                        <label><input type="checkbox" name="price[]" value="2" <?= in_array("2", $selectedPriceGroups) ? 'checked' : ''; ?>> 51-100</label><br>
-                        <label><input type="checkbox" name="price[]" value="3" <?= in_array("3", $selectedPriceGroups) ? 'checked' : ''; ?>> 101-150</label><br>
-                        <label><input type="checkbox" name="price[]" value="4" <?= in_array("4", $selectedPriceGroups) ? 'checked' : ''; ?>> 151-200</label><br>
-                        <label><input type="checkbox" name="price[]" value="5" <?= in_array("5", $selectedPriceGroups) ? 'checked' : ''; ?>> 201-500</label>
+                        <?php foreach ([4.5, 4.0, 3.5, 0] as $r): ?>
+                            <label><input type="radio" name="rating" value="<?= $r ?>" <?= ($selectedRating == $r) ? 'checked' : ''; ?>> <?= $r == 0 ? '不限' : $r.'星以上' ?></label><br>
+                        <?php endforeach; ?>
                     </div>
 
                     <div class="filter-section">
                         <h4>距離範圍</h4>
-                        <label><input type="radio" name="distance" value="0.5" <?= ($selectedDistance == 0.5) ? 'checked' : ''; ?>> 0.5km 內</label><br>
-                        <label><input type="radio" name="distance" value="1.0" <?= ($selectedDistance == 1.0) ? 'checked' : ''; ?>> 1.0km 內</label><br>
-                        <label><input type="radio" name="distance" value="2.0" <?= ($selectedDistance == 2.0) ? 'checked' : ''; ?>> 2.0km 內</label><br>
-                        <label><input type="radio" name="distance" value="0" <?= ($selectedDistance == 0) ? 'checked' : ''; ?>> 不限</label>
+                        <?php foreach ([0.5, 1.0, 2.0, 0] as $d): ?>
+                            <label>
+                                <input type="radio" name="distance" value="<?= $d ?>" <?= ($selectedDistance == $d) ? 'checked' : ''; ?>> 
+                                <?= $d == 0 ? '不限' : $d.'km 內' ?>
+                            </label><br>
+                        <?php endforeach; ?>
                     </div>
-                    
-                    <button type="submit" class="btn" style="width: 100%;">套用篩選</button>
+
+                    <div class="filter-section">
+                        <h4>價格範圍 (低消)</h4>
+                        <?php foreach (['1'=>'1-50', '2'=>'51-100', '3'=>'101-150', '4'=>'151-200'] as $v => $l): ?>
+                            <label><input type="checkbox" name="price[]" value="<?= $v ?>" <?= in_array($v, $selectedPriceGroups) ? 'checked' : ''; ?>> <?= $l ?></label><br>
+                        <?php endforeach; ?>
+                    </div>
+                    <button type="submit" class="btn" style="width: 100%; margin-top: 20px;">套用所有篩選</button>
                 </aside>
 
-                <main class="card-list">
-                    <?php if (!empty($cafesArray)): ?>
-                        <?php foreach ($cafesArray as $row): ?>
-                            <div class="card" id="cafe-<?= $row['id'] ?>">
-                                <div class="rating">★ <?= $row['rating'] ?? '新開幕' ?></div>
-                                <h3><?= htmlspecialchars($row['name']); ?></h3>
-                                <p>📍 <?= htmlspecialchars($row['address']); ?></p>
-                                <p>📞 <?= htmlspecialchars($row['phone']); ?></p>
-                                <p>🕒 <strong>營業時間：</strong><?= nl2br(htmlspecialchars($row['opening_hours'])); ?></p>
-                                <p>💰 低消：<?= ($row['min_consumption'] == 0) ? "無低消" : $row['min_consumption'] . " 元"; ?></p>
-                                <p>📏 距離：<?= htmlspecialchars($row['distance_meters']); ?> 公尺</p>
-                            </div>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <div style="grid-column: 1/-1; text-align: center; padding: 50px; background: #fff; border-radius: 15px;">
-                            沒有找到符合條件的咖啡廳，試試看減少篩選標籤吧！
-                        </div>
-                    <?php endif; ?>
-                </main>
+                <div class="content-wrapper">
+                    <div class="search-container">
+                        <input type="text" name="search" placeholder="搜尋店名或地址..." value="<?= $searchTerm ?>" class="search-input">
+                        <button type="submit" class="search-btn">🔍 搜尋</button>
+                    </div>
+
+                    <main class="card-list">
+                        <?php if(!empty($cafesArray)): ?>
+                            <?php foreach ($cafesArray as $row): ?>
+                                <div class="card cafe-card <?= ($targetCafeId == $row['id']) ? 'highlight-card' : '' ?>" id="cafe-<?= $row['id'] ?>">
+                                    <div style="display: flex; justify-content: space-between;">
+                                        <h3 style="margin: 0;"><?= htmlspecialchars($row['name']) ?></h3>
+                                        <button type="button" class="fav-btn" onclick="toggleFav(<?= $row['id'] ?>, this)" style="background:none; border:none; cursor:pointer; font-size: 1.4rem;">
+                                            <i class="<?= $row['is_favorite'] ? 'fa-solid' : 'fa-regular' ?> fa-heart" style="color: <?= $row['is_favorite'] ? '#ff4d4d' : '#ccc' ?>;"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="rating-stars">
+                                        <?php 
+                                        $ratingValue = (float)$row['rating'];
+                                        for ($i = 1; $i <= 5; $i++) {
+                                            if ($i <= $ratingValue) echo '<i class="fa-solid fa-star"></i>';
+                                            elseif ($i - 0.5 <= $ratingValue) echo '<i class="fa-solid fa-star-half-stroke"></i>';
+                                            else echo '<i class="fa-regular fa-star" style="color:#ccc;"></i>';
+                                        }
+                                        ?>
+                                        <span class="rating-num">(<?= number_format($ratingValue, 1) ?>)</span>
+                                    </div>
+
+                                    <div class="cafe-meta">
+                                        <span><i class="fa-solid fa-phone"></i> <?= htmlspecialchars($row['phone'] ?: '無電話') ?></span>
+                                        <span><i class="fa-solid fa-coins"></i> 低消: <?= (int)$row['min_consumption'] > 0 ? $row['min_consumption'].'元' : '無限制' ?></span>
+                                        <span><i class="fa-solid fa-person-walking"></i> 距離: <?= $row['dist_text'] ?></span>
+                                        <span><i class="fa-solid fa-clock"></i> 今日: <?= htmlspecialchars($row['display_hours']) ?></span>
+                                    </div>
+
+                                    <div class="status-tag">
+                                        <span class="dot <?= $row['status_class'] ?>"></span>
+                                        <strong class="<?= $row['status_class'] ?>-text"><?= $row['status_text'] ?></strong>
+                                    </div>
+
+                                    <p>📍 <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $row['latitude'] ?>,<?= $row['longitude'] ?>" target="_blank" class="nav-link"><?= htmlspecialchars($row['address']) ?></a></p>                                    <div class="card-footer">
+                                        <a href="reviews.php?id=<?= $row['id'] ?>" class="review-btn">💬 查看與留言</a>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </main>
+                </div>
             </div>
         </form>
     </div>
 
+    <script>
+        window.cafeData = <?php echo json_encode($mapData); ?>;
+        window.targetCafeId = <?php echo json_encode($targetCafeId); ?>;
+    </script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-    var map = L.map('map', { scrollWheelZoom: true }).setView([25.035, 121.445], 15);
     
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap &copy; CARTO'
-    }).addTo(map);
-
-    var cafes = <?php echo json_encode($mapData); ?>;
-    var markers = [];
-
-    if (cafes.length > 0) {
-        cafes.forEach(function(cafe) {
-            var pinColorClass = 'pin-brown';
-            if (cafe.rating >= 4.5) {
-                pinColorClass = 'pin-red';
-            } else if (cafe.rating >= 4.0) {
-                pinColorClass = 'pin-gold';
-            }
-
-           // 在 cafes.forEach 內部加入顏色判斷
-var pinColorClass = 'pin-brown';
-if (cafe.rating >= 4.5) {
-    pinColorClass = 'pin-red';
-} else if (cafe.rating >= 4.0) {
-    pinColorClass = 'pin-gold';
-}
-
-// 建立 Icon 時套用對應 Class
-var icon = L.divIcon({
-    className: 'custom-div-icon',
-    html: `<div class='marker-pin ${pinColorClass}'></div>`,
-    iconSize: [30, 42],
-    iconAnchor: [15, 42]
-});
-            // [修改] 彈出視窗加入營業時間
-            var popupContent = `
-                <div style="font-family: sans-serif; min-width: 150px;">
-                    <b style="color:#8d6e63; font-size:14px;">${cafe.name}</b><br>
-                    <span style="color:#666; font-size:12px;">${cafe.address}</span><br>
-                    <div style="font-size:11px; color:#444; margin-top:5px; border-top:1px solid #eee; padding-top:5px;">
-                        🕒 營業時間：<br>${cafe.opening_hours.replace(/\r\n|\n/g, '<br>')}
-                    </div>
-                    <button onclick="scrollToCafe(${cafe.id})" style="margin-top:8px; background:#8d6e63; color:white; border:none; border-radius:4px; padding:4px 8px; cursor:pointer; width:100%;">查看詳細卡片</button>
-                </div>
-            `;
-
-            var marker = L.marker([cafe.lat, cafe.lng], { icon: icon }).addTo(map).bindPopup(popupContent);
-            markers.push(marker);
-        });
-        var group = new L.featureGroup(markers);
-        map.fitBounds(group.getBounds().pad(0.1));
-    }
-
-    function scrollToCafe(id) {
-        document.querySelectorAll('.card').forEach(c => c.classList.remove('highlight-card'));
-        var target = document.getElementById('cafe-' + id);
-        if (target) {
-            target.classList.add('highlight-card');
-            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-    }
-</script>
+    <!-- 🟢 核心修正：加上隨機時間戳記防快取，強迫載入最新的彩色 JS 設定 -->
+    <script src="js/map.js?v=<?= time() ?>"></script>
 </body>
 </html>
