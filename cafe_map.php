@@ -143,7 +143,7 @@ if ($result) {
                 <div class="tag-container">
                     <strong style="margin-right: 10px;">快速篩選</strong>
                     <?php 
-                    $tags = ['socket'=>'插座', 'no_limit'=>'不限時', 'parking'=>'停車位', 'wifi'=>'WiFi', 'outdoor'=>'戶外座位', 'seats'=>'室內座位', 'dessert'=>'甜點', 'toilet'=>'廁所', 'no_min_consume'=>'無低消'];
+                    $tags = ['socket'=>'插座', 'no_limit'=>'不限時', 'parking'=>'停車位', 'wifi'=>'WiFi', 'seats'=>'室內座位', 'dessert'=>'甜點', 'toilet'=>'廁所', 'no_min_consume'=>'無低消'];
                     foreach($tags as $key => $lbl): ?>
                         <label><input type="checkbox" name="<?= $key ?>" value="1" <?= isset($_GET[$key]) ? 'checked' : ''; ?>> <?= $lbl ?></label>
                     <?php endforeach; ?>
@@ -171,7 +171,7 @@ if ($result) {
 
                     <div class="filter-section">
                         <h4>價格範圍 (低消)</h4>
-                        <?php foreach (['1'=>'1-50', '2'=>'51-100', '3'=>'101-150', '4'=>'151-200', '5'=>'201-500'] as $v => $l): ?>
+                        <?php foreach (['1'=>'1-50', '2'=>'51-100', '3'=>'101-150', '4'=>'151-200'] as $v => $l): ?>
                             <label><input type="checkbox" name="price[]" value="<?= $v ?>" <?= in_array($v, $selectedPriceGroups) ? 'checked' : ''; ?>> <?= $l ?></label><br>
                         <?php endforeach; ?>
                     </div>
@@ -219,7 +219,7 @@ if ($result) {
                                         <strong class="<?= $row['status_class'] ?>-text"><?= $row['status_text'] ?></strong>
                                     </div>
 
-<p>📍 <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $row['latitude'] ?>,<?= $row['longitude'] ?>" target="_blank" class="nav-link"><?= htmlspecialchars($row['address']) ?></a></p>                                    <div class="card-footer">
+                                    <p>📍 <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $row['latitude'] ?>,<?= $row['longitude'] ?>" target="_blank" class="nav-link"><?= htmlspecialchars($row['address']) ?></a></p>                                    <div class="card-footer">
                                         <a href="reviews.php?id=<?= $row['id'] ?>" class="review-btn">💬 查看與留言</a>
                                     </div>
                                 </div>
@@ -236,6 +236,8 @@ if ($result) {
         window.targetCafeId = <?php echo json_encode($targetCafeId); ?>;
     </script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="js/map.js"></script>
+    
+    <!-- 🟢 核心修正：加上隨機時間戳記防快取，強迫載入最新的彩色 JS 設定 -->
+    <script src="js/map.js?v=<?= time() ?>"></script>
 </body>
 </html>
