@@ -113,15 +113,56 @@ if ($result) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
     <style>
-        /* 補回原本遺失的狀態樣式 */
+        /* 狀態顏色 */
         .dot-opening-soon { background-color: #f1c40f !important; }
         .dot-closing-soon { background-color: #e67e22 !important; }
         .dot-opening-soon-text { color: #f1c40f; }
         .dot-closing-soon-text { color: #e67e22; }
         .highlight-card { border: 2px solid #8B4513 !important; background-color: #fffaf0 !important; }
         .rating-stars { color: #f1c40f; margin: 4px 0; font-size: 0.9rem; }
-        .cafe-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85rem; color: #555; margin: 8px 0; border-top: 1px solid #eee; padding-top: 8px; }
+        
+        /* --- 終極防爆版排版 --- */
+        .card {
+            min-width: 0 !important;
+            overflow: hidden !important; /* 絕對不允許長網址撐破卡片邊界 */
+        }
+
+        .cafe-meta {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 8px 0 !important;
+            font-size: 0.85rem; 
+            color: #555; 
+            margin: 8px 0; 
+            border-top: 1px solid #eee; 
+            padding-top: 8px;
+        }
+
+        /* 電話、低消、距離 */
+        .cafe-meta span {
+            flex: 0 0 50% !important;
+            max-width: 50% !important;
+            padding-right: 5px;
+            box-sizing: border-box;
+            word-break: break-all !important; 
+            overflow-wrap: break-word !important;
+            white-space: normal !important;
+        }
+
+        /* 讓營業時間 (第 4 個元素) 獨立滿版 */
+        .cafe-meta span:nth-child(4) {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+        }
+
         .cafe-meta i { width: 16px; margin-right: 5px; color: #8B4513; }
+
+        /* 確保地址與連結絕對會換行 */
+        .nav-link, .card p, .card h3 {
+            word-break: break-all !important;
+            overflow-wrap: break-word !important;
+            white-space: normal !important;
+        }
     </style>
 </head>
 <body>
@@ -217,8 +258,9 @@ if ($result) {
                                         <strong class="<?= $row['status_class'] ?>-text"><?= $row['status_text'] ?></strong>
                                     </div>
 
-                                    <p>📍 <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $row['latitude'] ?>,<?= $row['longitude'] ?>" target="_blank" class="nav-link"><?= htmlspecialchars($row['address']) ?></a></p>                                    <div class="card-footer">
-                                        <a href="reviews.php?id=<?= $row['id'] ?>" class="review-btn">💬 查看與留言</a>
+<p>📍 <a href="https://www.google.com/maps/dir/?api=1&destination=<?= urlencode($row['name'] . ' ' . $row['address']) ?>" target="_blank" class="nav-link" title="點擊開啟 Google 導航">
+    <?= htmlspecialchars($row['address']) ?>
+</a></p>                                        <a href="reviews.php?id=<?= $row['id'] ?>" class="review-btn">💬 查看與留言</a>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
