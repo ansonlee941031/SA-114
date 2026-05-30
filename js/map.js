@@ -1,15 +1,16 @@
-// js/map.js 完整版 (支援 AJAX 動態重繪)
+// js/map.js 完整版 (支援 AJAX 動態重繪 & 外部一鍵定位串接)
 document.addEventListener("DOMContentLoaded", function() {
-    var map = L.map('map', { scrollWheelZoom: true }).setView([25.035, 121.445], 15);
+    // 🟢 核心修正：將 map 掛載到 window 上變成全域變數，確保一鍵定位功能可以抓到 map 實例
+    window.map = L.map('map', { scrollWheelZoom: true }).setView([25.035, 121.445], 15);
     
     // 彩色版 OSM 地圖
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
+    }).addTo(window.map);
 
     // 新增：建立一個專門放標記的圖層群組，方便一鍵清除
-    var markerGroup = L.layerGroup().addTo(map);
+    var markerGroup = L.layerGroup().addTo(window.map);
     var markerMap = {}; 
     var markerList = []; 
 
@@ -76,12 +77,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
             if (window.targetCafeId && markerMap[window.targetCafeId]) {
                 var target = markerMap[window.targetCafeId];
-                map.setView(target.getLatLng(), 17);
+                window.map.setView(target.getLatLng(), 17);
                 target.openPopup();
                 setTimeout(() => { window.scrollToCafe(window.targetCafeId); }, 600);
             } else if (markerList.length > 0) {
                 var group = new L.featureGroup(markerList);
-                map.fitBounds(group.getBounds().pad(0.1));
+                window.map.fitBounds(group.getBounds().pad(0.1));
             }
         }
     };
