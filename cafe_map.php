@@ -111,59 +111,7 @@ if ($result) {
     <title>新莊咖啡地圖 - SA-114</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css">
-    <style>
-        /* 狀態顏色 */
-        .dot-opening-soon { background-color: #f1c40f !important; }
-        .dot-closing-soon { background-color: #e67e22 !important; }
-        .dot-opening-soon-text { color: #f1c40f; }
-        .dot-closing-soon-text { color: #e67e22; }
-        .highlight-card { border: 2px solid #8B4513 !important; background-color: #fffaf0 !important; }
-        .rating-stars { color: #f1c40f; margin: 4px 0; font-size: 0.9rem; }
-        
-        /* --- 終極防爆版排版 --- */
-        .card {
-            min-width: 0 !important;
-            overflow: hidden !important; /* 絕對不允許長網址撐破卡片邊界 */
-        }
-
-        .cafe-meta {
-            display: flex !important;
-            flex-wrap: wrap !important;
-            gap: 8px 0 !important;
-            font-size: 0.85rem; 
-            color: #555; 
-            margin: 8px 0; 
-            border-top: 1px solid #eee; 
-            padding-top: 8px;
-        }
-
-        /* 電話、低消、距離 */
-        .cafe-meta span {
-            flex: 0 0 50% !important;
-            max-width: 50% !important;
-            padding-right: 5px;
-            box-sizing: border-box;
-            word-break: break-all !important; 
-            overflow-wrap: break-word !important;
-            white-space: normal !important;
-        }
-
-        /* 讓營業時間 (第 4 個元素) 獨立滿版 */
-        .cafe-meta span:nth-child(4) {
-            flex: 0 0 100% !important;
-            max-width: 100% !important;
-        }
-
-        .cafe-meta i { width: 16px; margin-right: 5px; color: #8B4513; }
-
-        /* 確保地址與連結絕對會換行 */
-        .nav-link, .card p, .card h3 {
-            word-break: break-all !important;
-            overflow-wrap: break-word !important;
-            white-space: normal !important;
-        }
-    </style>
+    <link rel="stylesheet" href="css/style.css?v=<?= time() ?>">
 </head>
 <body>
     <?php include 'navbar.php'; ?>
@@ -189,6 +137,9 @@ if ($result) {
                         <label><input type="checkbox" name="<?= $key ?>" value="1" <?= isset($_GET[$key]) ? 'checked' : ''; ?>> <?= $lbl ?></label>
                     <?php endforeach; ?>
                 </div>
+                <button type="button" id="clearFiltersBtn" class="clear-filters-btn">
+                    <i class="fa-solid fa-trash-can"></i> 清除所有選項
+                </button>
             </div>
 
             <div class="main-layout">
@@ -220,7 +171,10 @@ if ($result) {
 
                 <div class="content-wrapper">
                     <div class="search-container">
-                        <input type="text" name="search" placeholder="搜尋店名或地址..." value="<?= $searchTerm ?>" class="search-input">
+                        <div class="search-box-wrapper">
+                            <input type="text" name="search" id="searchInput" placeholder="搜尋店名或地址..." value="<?= $searchTerm ?>" class="search-input">
+                            <button type="button" id="searchBtn" class="search-btn" title="點擊搜尋"><i class="fa-solid fa-magnifying-glass"></i> 確認</button>
+                        </div>
                     </div>
 
                     <main class="card-list">
@@ -258,10 +212,10 @@ if ($result) {
                                         <strong class="<?= $row['status_class'] ?>-text"><?= $row['status_text'] ?></strong>
                                     </div>
 
-<p>📍 <a href="https://www.google.com/maps/dir/?api=1&destination=<?= urlencode($row['name'] . ' ' . $row['address']) ?>" target="_blank" class="nav-link" title="點擊開啟 Google 導航">
-    <?= htmlspecialchars($row['address']) ?>
-</a></p>                                        <a href="reviews.php?id=<?= $row['id'] ?>" class="review-btn">💬 查看與留言</a>
-                                    </div>
+                                    <p>📍 <a href="https://www.google.com/maps/dir/?api=1&destination=<?= urlencode($row['name'] . ' ' . $row['address']) ?>" target="_blank" class="nav-link" title="點擊開啟 Google 導航">
+                                        <?= htmlspecialchars($row['address']) ?>
+                                    </a></p>                                        
+                                    <a href="reviews.php?id=<?= $row['id'] ?>" class="review-btn">💬 查看與留言</a>
                                 </div>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -271,42 +225,50 @@ if ($result) {
         </form>
     </div>
 
+    <button type="button" id="locateMeBtn" class="floating-btn locate-me-btn" title="定位我的位置">
+        <i class="fa-solid fa-crosshairs"></i>
+    </button>
+
+    <button type="button" id="backToTopBtn" class="floating-btn back-to-top" title="返回最頂端">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+
     <script>
         window.cafeData = <?php echo json_encode($mapData); ?>;
         window.targetCafeId = <?php echo json_encode($targetCafeId); ?>;
     </script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <!-- 🟢 核心修正：加上隨機時間戳記防快取，強迫載入最新的彩色 JS 設定 -->
     <script src="js/map.js?v=<?= time() ?>"></script>
-<script>
+    <script>
         document.addEventListener("DOMContentLoaded", function() {
             const filterForm = document.getElementById('filterForm');
+            const searchInput = document.getElementById('searchInput');
+            const searchBtn = document.getElementById('searchBtn');
+            const clearFiltersBtn = document.getElementById('clearFiltersBtn');
+            const backToTopBtn = document.getElementById('backToTopBtn');
+            const locateMeBtn = document.getElementById('locateMeBtn');
             
-            // 隱藏傳統的按鈕
-            const submitBtns = filterForm.querySelectorAll('button[type="submit"]');
-            submitBtns.forEach(btn => btn.style.display = 'none');
+            let userLocationMarker = null;
 
-            // 核心：無痛更新畫面的函數
+            const submitBtns = filterForm.querySelectorAll('button[type="submit"]');
+            submitBtns.forEach(btn => { if(btn.id !== 'searchBtn') btn.style.display = 'none'; });
+
             function fetchAndUpdate() {
                 const formData = new FormData(filterForm);
                 const params = new URLSearchParams(formData);
                 const url = 'cafe_map.php?' + params.toString();
 
-                // 使用 fetch 在背景悄悄抓取新資料
                 fetch(url)
                     .then(response => response.text())
                     .then(html => {
                         const parser = new DOMParser();
                         const doc = parser.parseFromString(html, 'text/html');
 
-                        // 1. 替換店家卡片清單 (畫面不會跳轉，捲軸不會跑)
                         const newCardList = doc.querySelector('.card-list');
                         if(newCardList) {
                             document.querySelector('.card-list').innerHTML = newCardList.innerHTML;
                         }
 
-                        // 2. 擷取最新的地圖 JSON 資料
                         const scripts = doc.querySelectorAll('script');
                         let newMapData = null;
                         scripts.forEach(script => {
@@ -318,36 +280,85 @@ if ($result) {
                             }
                         });
 
-                        // 3. 呼叫 map.js 裡的新函數來重繪地圖標記
                         if (newMapData && typeof window.updateMapMarkers === 'function') {
                             window.updateMapMarkers(newMapData);
                         }
 
-                        // 4. 更新網址列 (讓上一頁/下一頁功能正常)
                         window.history.pushState({}, '', url);
                     })
                     .catch(err => console.error('更新失敗:', err));
             }
 
-            // 監聽所有 Checkbox 和 Radio 的點擊，一按就更新
             const inputs = filterForm.querySelectorAll('input[type="checkbox"], input[type="radio"]');
             inputs.forEach(input => {
                 input.addEventListener('change', fetchAndUpdate);
             });
             
-            // 監聽搜尋框：使用者停止打字 0.5 秒後，自動發動搜尋 (超實用 UX)
-            const searchInput = filterForm.querySelector('input[name="search"]');
-            if(searchInput) {
-                let timeout = null;
-                searchInput.addEventListener('input', () => {
-                    clearTimeout(timeout);
-                    timeout = setTimeout(fetchAndUpdate, 500);
+            searchBtn.addEventListener('click', fetchAndUpdate);
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault(); 
+                    fetchAndUpdate();   
+                }
+            });
+
+            clearFiltersBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                const checkboxes = filterForm.querySelectorAll('input[type="checkbox"]');
+                checkboxes.forEach(cb => cb.checked = false);
+                const radios = filterForm.querySelectorAll('input[type="radio"]');
+                radios.forEach(radio => {
+                    if (radio.value === "0") radio.checked = true;
+                    else radio.checked = false;
                 });
-                // 停用 Enter 鍵的預設跳轉行為
-                searchInput.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') e.preventDefault();
+                fetchAndUpdate();
+            });
+
+            window.addEventListener('scroll', function() {
+                if (window.scrollY > 300) {
+                    backToTopBtn.classList.add('show');
+                } else {
+                    backToTopBtn.classList.remove('show');
+                }
+            });
+            backToTopBtn.addEventListener('click', function() {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+            locateMeBtn.addEventListener('click', function() {
+                const leafletMap = window.map || (typeof map !== 'undefined' ? map : null);
+                if (!leafletMap) {
+                    alert("地圖元件尚未載入完成！");
+                    return;
+                }
+
+                const icon = locateMeBtn.querySelector('i');
+                icon.className = 'fa-solid fa-spinner fa-spin';
+
+                leafletMap.locate({ setView: true, maxZoom: 16 });
+
+                leafletMap.on('locationfound', function(e) {
+                    icon.className = 'fa-solid fa-crosshairs';
+                    if (userLocationMarker) {
+                        leafletMap.removeLayer(userLocationMarker);
+                    }
+
+                    const blueDotIcon = L.divIcon({
+                        className: 'user-location-dot',
+                        html: '<div style="background-color: #3b82f6; width: 16px; height: 16px; border-radius: 50%; border: 3px solid #fff; box-shadow: 0 0 8px rgba(0,0,0,0.4);"></div>',
+                        iconSize: [16, 16],
+                        iconAnchor: [8, 8]
+                    });
+
+                    userLocationMarker = L.marker(e.latlng, { icon: blueDotIcon }).addTo(leafletMap)
+                        .bindPopup("📍目前的位置").openPopup();
                 });
-            }
+
+                leafletMap.on('locationerror', function(err) {
+                    icon.className = 'fa-solid fa-crosshairs';
+                    alert("無法取得您的位置，請確認瀏覽器是否已開啟定位權限！");
+                });
+            });
         });
     </script>
 </body>
