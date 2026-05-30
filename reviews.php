@@ -133,109 +133,16 @@ $reviews_res = mysqli_query($conn, $review_sql);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($cafe_info['name']) ?> - 評論詳情</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css">
-    <style>
-        :root {
-            --primary-brown: #8B4513;
-            --soft-brown: #a67c52; /* 較淺的棕色 */
-            --bg-color: #fcfaf7;
-        }
-        body { background-color: var(--bg-color); font-size: 15px; margin: 0; }
-
-        .page-container {
-            max-width: 900px;
-            margin: 30px auto 120px; 
-            padding: 0 20px;
-        }
-
-        .section-box { 
-            background: #fff; 
-            padding: 25px; 
-            border-radius: 18px; 
-            margin-bottom: 25px; 
-            box-shadow: 0 5px 20px rgba(0,0,0,0.05); 
-        }
-
-        .main-title { font-size: 1.8rem; color: #4a2c2a; margin-bottom: 20px; font-weight: bold; }
-        .tab-title { 
-            border-left: 5px solid var(--primary-brown); 
-            padding-left: 12px; 
-            margin-bottom: 20px; 
-            color: #4a2c2a; 
-            font-size: 1.35rem; 
-            font-weight: bold;
-            display: flex; align-items: center; justify-content: space-between; 
-        }
-
-        .review-card { padding: 25px; border-radius: 15px; margin-bottom: 15px; border: 1px solid #f2f2f2; }
-        .user-name { font-size: 1.15rem; color: var(--primary-brown); font-weight: 700; }
-        .post-time { font-size: 0.95rem; color: #999; }
-        .display-stars { color: #f1c40f; font-size: 1.2rem; margin: 8px 0; }
-        .comment-text { font-size: 1.1rem; line-height: 1.7; color: #444; margin: 12px 0; }
-
-        .photo-grid img { width: 140px; height: 140px; object-fit: cover; border-radius: 10px; margin: 4px; cursor: zoom-in; }
-
-        .form-area { background: #fffcf5; padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #faead5; }
-/* 修改後：加入 box-sizing: border-box */
-textarea { 
-    font-size: 1.05rem; 
-    padding: 12px; 
-    border-radius: 10px; 
-    border: 1px solid #ddd; 
-    width: 100%; 
-    resize: none; 
-    box-sizing: border-box; /* 👈 這是解決超出去的關鍵 */
-}        
-        .btn-custom { background: var(--primary-brown); color: white; border: none; padding: 10px 22px; border-radius: 8px; font-size: 1rem; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-custom:hover { opacity: 0.9; }
-
-        /* 調整互動連結顏色：降低選取後的對比度 */
-        .action-link { 
-            font-size: 1rem; 
-            text-decoration: none; 
-            color: #888; 
-            margin-right: 15px; 
-            transition: 0.2s; 
-            padding: 4px 8px;
-            border-radius: 6px;
-        }
-        .action-link:hover { background: #f5f5f5; }
-        .action-link.active { 
-            color: var(--soft-brown); /* 改用較淺的棕色 */
-            background: #fdf5e6; /* 加入極淺的背景底色取代深色字 */
-            font-weight: 500;
-        }
-
-        /* 燈箱樣式 */
-        .modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); }
-        .modal-content { margin: auto; display: block; max-width: 85%; max-height: 80%; position: relative; top: 50%; transform: translateY(-50%); border-radius: 5px; }
-        .prev, .next { cursor: pointer; position: absolute; top: 50%; color: white; font-size: 50px; padding: 20px; z-index: 10000; text-decoration: none; user-select: none; }
-        .next { right: 30px; } .prev { left: 30px; }
-        .close-modal { position: absolute; top: 25px; right: 35px; color: white; font-size: 40px; cursor: pointer; z-index: 10001; }
-    
-        /* --- 統一「選擇檔案」按鈕樣式 --- */
-input[type="file"]::file-selector-button {
-    background-color: #f0f0f0; /* 淺灰色背景 */
-    color: #666;               /* 深灰色文字 */
-    border: 1px solid #ddd;    /* 淡淡的邊框 */
-    padding: 8px 16px;
-    border-radius: 8px;        /* 圓角，與發佈按鈕統一 */
-    cursor: pointer;
-    font-weight: bold;
-    transition: background-color 0.2s ease;
-    margin-right: 10px;        /* 與旁邊的文字拉開一點距離 */
-}
-
-input[type="file"]::file-selector-button:hover {
-    background-color: #e4e4e4; /* 滑鼠移過去時變深一點的灰色 */
-}
-    </style>
+    <link rel="stylesheet" href="css/style.css?v=<?= time() ?>">
 </head>
 <body>
     <?php include 'navbar.php'; ?>
 
     <div class="page-container">
-        <h1 class="main-title">☕ <?= htmlspecialchars($cafe_info['name']) ?></h1>
+        <div class="title-bar">
+            <h1 class="main-title">☕ <?= htmlspecialchars($cafe_info['name']) ?></h1>
+            <a href="cafe_map.php?id=<?= $cafe_id ?>" class="back-btn"><i class="fa-solid fa-arrow-left"></i> 回地圖</a>
+        </div>
 
         <div class="section-box">
             <h3 class="tab-title"><span><i class="fa-solid fa-book-open"></i> 菜單相簿</span></h3>
@@ -249,9 +156,15 @@ input[type="file"]::file-selector-button:hover {
                     </div>
                 <?php endwhile; ?>
             </div>
+            
             <?php if ($is_logged_in): ?>
-                <form method="POST" enctype="multipart/form-data" style="margin-top: 12px; font-size: 0.9rem;">
-                    <input type="file" name="menu_images[]" multiple required>
+                <form method="POST" enctype="multipart/form-data" style="margin-top: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div class="upload-btn-wrapper">
+                        <input type="file" name="menu_images[]" id="menuImagesInput" multiple required style="display: none;">
+                        <label for="menuImagesInput" class="upload-custom-label">
+                            <i class="fa-regular fa-file-lines" style="font-size: 1.1rem;"></i> 選擇圖片
+                        </label>
+                    </div>
                     <button type="submit" name="submit_menu" class="btn-custom">上傳菜單</button>
                 </form>
             <?php endif; ?>
@@ -281,10 +194,14 @@ input[type="file"]::file-selector-button:hover {
                             <?php endfor; ?>
                         </div>
                         <textarea name="comment" rows="4" placeholder="分享您在這間咖啡廳的體驗..." required></textarea>
-                        <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
-                            <input type="file" name="review_images[]" multiple style="font-size: 0.85rem;">
-                                                    </div>
-                                                    <div>
+                        
+                        <div class="review-form-footer">
+                            <div class="upload-btn-wrapper">
+                                <input type="file" name="review_images[]" id="reviewImagesInput" multiple style="display: none;">
+                                <label for="reviewImagesInput" class="upload-custom-label">
+                                    <i class="fa-regular fa-image" style="font-size: 1.1rem;"></i> 選擇圖片
+                                </label>
+                            </div>
                             <button type="submit" name="submit_review" class="btn-custom">發佈評論</button>
                         </div>
                     </form>
@@ -325,6 +242,11 @@ input[type="file"]::file-selector-button:hover {
         </div>
     </div>
 
+    <!-- 一鍵返回最頂端浮動按鈕 -->
+    <button type="button" id="reviewsBackToTopBtn" class="reviews-back-to-top" title="返回最頂端">
+        <i class="fa-solid fa-arrow-up"></i>
+    </button>
+
     <div id="imgModal" class="modal">
         <span class="close-modal" onclick="closeModal()">&times;</span>
         <a class="prev" id="prevBtn">&#10094;</a>
@@ -333,7 +255,6 @@ input[type="file"]::file-selector-button:hover {
     </div>
 
     <script>
-    // 星星互動
     const stars = document.querySelectorAll('.star-label');
     stars.forEach((s, idx) => {
         s.onmouseover = () => {
@@ -341,7 +262,52 @@ input[type="file"]::file-selector-button:hover {
         };
     });
 
-    // 燈箱邏輯
+    const menuInput = document.getElementById('menuImagesInput');
+    const menuStatusText = document.getElementById('menuFileStatusText');
+    if (menuInput && menuStatusText) {
+        menuInput.addEventListener('change', function() {
+            const count = this.files.length;
+            if (count > 0) {
+                menuStatusText.innerText = `已選取 ${count} 張菜單 📸`;
+                menuStatusText.style.color = '#8B4513';
+                menuStatusText.style.fontWeight = 'bold';
+            } else {
+                menuStatusText.innerText = '未選取任何圖片';
+                menuStatusText.style.color = '#666';
+                menuStatusText.style.fontWeight = 'normal';
+            }
+        });
+    }
+
+    const fileInput = document.getElementById('reviewImagesInput');
+    const statusText = document.getElementById('fileStatusText');
+    if (fileInput && statusText) {
+        fileInput.addEventListener('change', function() {
+            const count = this.files.length;
+            if (count > 0) {
+                statusText.innerText = `已選取 ${count} 張圖片 📸`;
+                statusText.style.color = '#8B4513';
+                statusText.style.fontWeight = 'bold';
+            } else {
+                statusText.innerText = '未選取任何圖片';
+                statusText.style.color = '#666';
+                statusText.style.fontWeight = 'normal';
+            }
+        });
+    }
+
+    const backToTopBtn = document.getElementById('reviewsBackToTopBtn');
+    window.addEventListener('scroll', function() {
+        if (window.scrollY > 300) {
+            backToTopBtn.classList.add('show');
+        } else {
+            backToTopBtn.classList.remove('show');
+        }
+    });
+    backToTopBtn.addEventListener('click', function() {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
     let currentImgIdx = 0;
     let allImgs = [];
     const modal = document.getElementById('imgModal');
@@ -349,7 +315,6 @@ input[type="file"]::file-selector-button:hover {
 
     function initLightbox() {
         const enlargeImgs = document.querySelectorAll('.enlarge-img');
-        // 抓取頁面上所有帶有 enlarge-img 類別的照片
         allImgs = Array.from(enlargeImgs).map(img => img.src);
         
         enlargeImgs.forEach((img, index) => {
@@ -370,10 +335,8 @@ input[type="file"]::file-selector-button:hover {
     document.getElementById('nextBtn').onclick = (e) => { e.stopPropagation(); changeImg(1); };
     window.closeModal = () => modal.style.display = "none";
     
-    // 點擊背景關閉
     modal.onclick = (e) => { if(e.target === modal) closeModal(); };
 
-    // 鍵盤支援
     document.onkeydown = (e) => {
         if (modal.style.display === "block") {
             if (e.key === "ArrowLeft") changeImg(-1);
