@@ -13,9 +13,12 @@ $selectedPriceGroups = isset($_GET['price']) ? (is_array($_GET['price']) ? $_GET
 // 接收從 route_plan.php 傳來的店家 ID
 $targetCafeId = isset($_GET['id']) ? (int)$_GET['id'] : null;
 
-// 執行 SQL 查詢
-$queryData = \App\CafeQueryBuilder::build($_GET);
-$stmt = mysqli_prepare($conn, $queryData['sql']);
+// 執行 SQL 查詢 (攔截距離參數，將過濾工作交由前端真實 GPS 處理)
+$apiParams = $_GET;
+if (isset($apiParams['distance'])) {
+    unset($apiParams['distance']); 
+}
+$queryData = \App\CafeQueryBuilder::build($apiParams);$stmt = mysqli_prepare($conn, $queryData['sql']);
 if ($stmt) {
     if (!empty($queryData['params'])) { mysqli_stmt_bind_param($stmt, $queryData['types'], ...$queryData['params']); }
     mysqli_stmt_execute($stmt);
@@ -203,7 +206,11 @@ if ($result) {
                                     <div class="cafe-meta">
                                         <span><i class="fa-solid fa-phone"></i> <?= htmlspecialchars($row['phone'] ?: '無電話') ?></span>
                                         <span><i class="fa-solid fa-coins"></i> 低消: <?= (int)$row['min_consumption'] > 0 ? $row['min_consumption'].'元' : '無限制' ?></span>
-                                        <span><i class="fa-solid fa-person-walking"></i> 距離: <?= $row['dist_text'] ?></span>
+<span class="cafe-distance-field" style="display: none;" 
+      data-lat="<?= $row['latitude'] ?>" 
+      data-lng="<?= $row['longitude'] ?>">
+    <i class="fa-solid fa-person-walking"></i> 距離: <span class="dist-num">計算中</span>
+</span>
                                         <span><i class="fa-solid fa-clock"></i> 今日: <?= htmlspecialchars($row['display_hours']) ?></span>
                                     </div>
 
@@ -249,14 +256,28 @@ if ($result) {
             const locateMeBtn = document.getElementById('locateMeBtn');
             
             let userLocationMarker = null;
+            // 🌟 記住使用者的真實座標
+            let currentUserLat = null;
+            let currentUserLng = null;
 
             const submitBtns = filterForm.querySelectorAll('button[type="submit"]');
             submitBtns.forEach(btn => { if(btn.id !== 'searchBtn') btn.style.display = 'none'; });
+
+            // 🌟 頁面載入防呆：如果有距離參數但沒定位，強制切回「不限」
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('distance') && urlParams.get('distance') !== "0") {
+                document.querySelector('input[name="distance"][value="0"]').checked = true;
+                urlParams.set('distance', "0");
+                window.history.replaceState({}, '', window.location.pathname + '?' + urlParams.toString());
+            }
 
             function fetchAndUpdate() {
                 const formData = new FormData(filterForm);
                 const params = new URLSearchParams(formData);
                 const url = 'cafe_map.php?' + params.toString();
+                
+                // 讀取當前選擇的「距離限制」
+                const currentDistLimit = parseFloat(formData.get('distance')) || 0;
 
                 fetch(url)
                     .then(response => response.text())
@@ -265,12 +286,9 @@ if ($result) {
                         const doc = parser.parseFromString(html, 'text/html');
 
                         const newCardList = doc.querySelector('.card-list');
-                        if(newCardList) {
-                            document.querySelector('.card-list').innerHTML = newCardList.innerHTML;
-                        }
-
+                        let newMapData = [];
+                        
                         const scripts = doc.querySelectorAll('script');
-                        let newMapData = null;
                         scripts.forEach(script => {
                             if (script.textContent.includes('window.cafeData')) {
                                 const match = script.textContent.match(/window\.cafeData\s*=\s*(\[.*?\]);/s);
@@ -280,8 +298,63 @@ if ($result) {
                             }
                         });
 
-                        if (newMapData && typeof window.updateMapMarkers === 'function') {
-                            window.updateMapMarkers(newMapData);
+                        let filteredMapData = [];
+                        let visibleCardsCount = 0;
+
+                        if (newCardList && newMapData.length > 0) {
+                            const cards = newCardList.querySelectorAll('.card');
+                            const R = 6371000; // 地球半徑
+
+                            cards.forEach(card => {
+                                const field = card.querySelector('.cafe-distance-field');
+                                const cafeIdStr = card.id.replace('cafe-', '');
+                                const cafeId = parseInt(cafeIdStr);
+
+                                // 如果已經定位，開始計算真實距離
+                                if (currentUserLat !== null && currentUserLng !== null && field) {
+                                    const cafeLat = parseFloat(field.getAttribute('data-lat'));
+                                    const cafeLng = parseFloat(field.getAttribute('data-lng'));
+                                    
+                                    const dLat = (cafeLat - currentUserLat) * Math.PI / 180;
+                                    const dLng = (cafeLng - currentUserLng) * Math.PI / 180;
+                                    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(currentUserLat * Math.PI / 180) * Math.cos(cafeLat * Math.PI / 180) * Math.sin(dLng/2) * Math.sin(dLng/2);
+                                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                                    const distanceMeters = R * c;
+                                    const distanceKm = distanceMeters / 1000;
+
+                                    // 🌟 核心過濾：如果超過篩選距離，直接隱藏卡片！
+                                    if (currentDistLimit > 0 && distanceKm > currentDistLimit) {
+                                        card.style.display = 'none';
+                                    } else {
+                                        // 沒超過，填入距離並顯示
+                                        let distText = distanceMeters >= 1000 ? distanceKm.toFixed(1) + " km" : Math.round(distanceMeters) + " m";
+                                        field.querySelector('.dist-num').innerText = distText;
+                                        field.style.display = 'inline-block';
+                                        
+                                        // 把這家店保留到地圖標記清單中
+                                        const md = newMapData.find(m => m.id === cafeId);
+                                        if (md) filteredMapData.push(md);
+                                        visibleCardsCount++;
+                                    }
+                                } else {
+                                    // 尚未定位 (此時距離篩選必為「不限」)，全部保留
+                                    const md = newMapData.find(m => m.id === cafeId);
+                                    if (md) filteredMapData.push(md);
+                                    visibleCardsCount++;
+                                }
+                            });
+                            
+                            // 🌟 防呆：如果過濾後沒有半家店，顯示提示
+                            if (visibleCardsCount === 0) {
+                                newCardList.innerHTML = '<div class="no-result" style="grid-column: 1/-1; text-align: center; padding: 50px; color: #888;">找不到符合距離與條件的咖啡廳 ☕</div>';
+                            }
+                            
+                            document.querySelector('.card-list').innerHTML = newCardList.innerHTML;
+                        }
+
+                        // 通知地圖只重繪「有通過距離測試」的店家
+                        if (typeof window.updateMapMarkers === 'function') {
+                            window.updateMapMarkers(filteredMapData);
                         }
 
                         window.history.pushState({}, '', url);
@@ -291,46 +364,41 @@ if ($result) {
 
             const inputs = filterForm.querySelectorAll('input[type="checkbox"], input[type="radio"]');
             inputs.forEach(input => {
-                input.addEventListener('change', fetchAndUpdate);
+                input.addEventListener('change', function(e) {
+                    // 🌟 攔截器：如果點了距離篩選，但沒開 GPS，跳警告並退回「不限」
+                    if (this.name === 'distance' && this.value !== "0" && currentUserLat === null) {
+                        alert("⚠️ 請先點擊右下角的「📍定位我的位置」按鈕，獲取真實位置後才能使用距離篩選！");
+                        document.querySelector('input[name="distance"][value="0"]').checked = true;
+                        return; // 終止後續動作
+                    }
+                    fetchAndUpdate();
+                });
             });
             
             searchBtn.addEventListener('click', fetchAndUpdate);
             searchInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault(); 
-                    fetchAndUpdate();   
-                }
+                if (e.key === 'Enter') { e.preventDefault(); fetchAndUpdate(); }
             });
 
             clearFiltersBtn.addEventListener('click', function() {
                 searchInput.value = '';
-                const checkboxes = filterForm.querySelectorAll('input[type="checkbox"]');
-                checkboxes.forEach(cb => cb.checked = false);
-                const radios = filterForm.querySelectorAll('input[type="radio"]');
-                radios.forEach(radio => {
-                    if (radio.value === "0") radio.checked = true;
-                    else radio.checked = false;
+                filterForm.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+                filterForm.querySelectorAll('input[type="radio"]').forEach(radio => {
+                    if (radio.value === "0") radio.checked = true; else radio.checked = false;
                 });
                 fetchAndUpdate();
             });
 
             window.addEventListener('scroll', function() {
-                if (window.scrollY > 300) {
-                    backToTopBtn.classList.add('show');
-                } else {
-                    backToTopBtn.classList.remove('show');
-                }
+                if (window.scrollY > 300) backToTopBtn.classList.add('show');
+                else backToTopBtn.classList.remove('show');
             });
-            backToTopBtn.addEventListener('click', function() {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            });
+            backToTopBtn.addEventListener('click', function() { window.scrollTo({ top: 0, behavior: 'smooth' }); });
 
+            // --- 定位按鈕邏輯 ---
             locateMeBtn.addEventListener('click', function() {
                 const leafletMap = window.map || (typeof map !== 'undefined' ? map : null);
-                if (!leafletMap) {
-                    alert("地圖元件尚未載入完成！");
-                    return;
-                }
+                if (!leafletMap) return;
 
                 const icon = locateMeBtn.querySelector('i');
                 icon.className = 'fa-solid fa-spinner fa-spin';
@@ -339,9 +407,7 @@ if ($result) {
 
                 leafletMap.on('locationfound', function(e) {
                     icon.className = 'fa-solid fa-crosshairs';
-                    if (userLocationMarker) {
-                        leafletMap.removeLayer(userLocationMarker);
-                    }
+                    if (userLocationMarker) leafletMap.removeLayer(userLocationMarker);
 
                     const blueDotIcon = L.divIcon({
                         className: 'user-location-dot',
@@ -350,8 +416,12 @@ if ($result) {
                         iconAnchor: [8, 8]
                     });
 
-                    userLocationMarker = L.marker(e.latlng, { icon: blueDotIcon }).addTo(leafletMap)
-                        .bindPopup("📍目前的位置").openPopup();
+                    userLocationMarker = L.marker(e.latlng, { icon: blueDotIcon }).addTo(leafletMap).bindPopup("📍目前的位置").openPopup();
+
+                    // 🌟 定位成功後：記住座標，並「直接觸發一次 AJAX」讓畫面把距離算出來！
+                    currentUserLat = e.latlng.lat;
+                    currentUserLng = e.latlng.lng;
+                    fetchAndUpdate();
                 });
 
                 leafletMap.on('locationerror', function(err) {
@@ -360,6 +430,6 @@ if ($result) {
                 });
             });
         });
-    </script>
+        </script>
 </body>
 </html>
