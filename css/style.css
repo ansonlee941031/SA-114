@@ -176,3 +176,55 @@ textarea { font-size: 1.05rem; padding: 12px; border-radius: 10px; border: 1px s
     .cafe-meta { grid-template-columns: 1fr !important; }
     .cafe-meta span:nth-child(4) { grid-column: span 1 !important; }
 }
+
+/* =========================================
+   🌟 懸浮按鈕佈局 (定位、回到頂部)
+   ========================================= */
+
+/* 1. 統一基礎設定，強制避開底部導覽列 */
+.floating-btn {
+    position: fixed !important;
+    bottom: 95px !important; /* 👈 絕對關鍵：距離底部 95px，完美避開導覽列 */
+    z-index: 9999 !important;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    background-color: #8d6e63;
+    color: white;
+    border: 2px solid white;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.3s ease !important;
+}
+
+.floating-btn:hover {
+    background-color: #70554c;
+    transform: scale(1.05);
+}
+
+/* 2. 定位按鈕 (Locate Me) - 固定在左下角 */
+#locateMeBtn {
+    left: 20px !important;
+    right: auto !important; 
+}
+
+/* 3. 回到頂部按鈕 (Back to Top) - 固定在右下角 */
+#backToTopBtn {
+    left: auto !important;
+    right: 20px !important;
+    /* 預設隱藏，等 JS 偵測到使用者往下滑才會浮現 */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px);
+}
+
+/* 當 JS 加上 show 類別時，讓按鈕滑順出現 */
+#backToTopBtn.show {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateY(0) !important;
+}
